@@ -97,13 +97,13 @@ def main():
         dt = T / N_per_segment
         dts.append(dt)
 
-    # Quadratic cost on time
-    J = sum(Ts) ** 2
+    # Linear cost on time
+    J = sum(Ts)
 
     # Quadratic cost on control input
     for k in range(N):
         R = np.diag(1 / np.square([12, 12]))
-        J += U[:, k].T @ R @ U[:, k]
+        J += U[:, k].T @ R @ U[:, k] * dts[int(k / N_per_segment)]
 
     opti.minimize(J)
 
