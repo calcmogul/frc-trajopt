@@ -71,7 +71,6 @@ def main():
     X = opti.variable(5, N + 1)
     U = opti.variable(2, N)
 
-    # Minimize time
     Ts = []
     dts = []
     for i in range(len(waypoints) - 1):
@@ -97,7 +96,16 @@ def main():
 
         dt = T / N_per_segment
         dts.append(dt)
-    opti.minimize(sum(Ts))
+
+    # Quadratic cost on time
+    J = sum(Ts) ** 2
+
+    # Quadratic cost on control input
+    for k in range(N):
+        R = np.diag(1 / np.square([12, 12]))
+        J += U[:, k].T @ R @ U[:, k]
+
+    opti.minimize(J)
 
     # Dynamics constraint
     for k in range(N):
@@ -152,6 +160,22 @@ def main():
     sol_dts = []
     for k in range(len(waypoints) - 1):
         sol_dts.append(sol.value(Ts[k] / N_per_segment))
+
+    # Plot X vs time
+    plt.figure()
+    plt.plot(ts, sol.value(sol.value(X[0, :])), label="X")
+    plt.title("X vs time")
+    plt.xlabel("Time (s)")
+    plt.ylabel("X (m)")
+    plt.legend()
+
+    # Plot Y vs time
+    plt.figure()
+    plt.plot(ts, sol.value(sol.value(X[1, :])), label="Y")
+    plt.title("Y vs time")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Y (m)")
+    plt.legend()
 
     # Plot heading vs time
     plt.figure()
