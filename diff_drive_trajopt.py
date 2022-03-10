@@ -64,7 +64,10 @@ def add_waypoint_constraints(opti, X, waypoints, N):
 
 def main():
     waypoints = [(0, 0, 0), (4.5, 3, 0), (4, 1, math.pi)]
+    q = 2
+    r = [12, 12]
     N_per_segment = 100
+
     N = N_per_segment * (len(waypoints) - 1)
 
     opti = ca.Opti()
@@ -98,11 +101,11 @@ def main():
         dts.append(dt)
 
     # Linear cost on time
-    J = sum(Ts)
+    J = q * sum(Ts)
 
     # Quadratic cost on control input
     for k in range(N):
-        R = np.diag(1 / np.square([12, 12]))
+        R = np.diag(1 / np.square(r))
         J += U[:, k].T @ R @ U[:, k] * dts[int(k / N_per_segment)]
 
     opti.minimize(J)
