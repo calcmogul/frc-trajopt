@@ -138,15 +138,9 @@ def main():
     print("Total time=", sum([sol.value(Ts[k]) for k in range(len(Ts))]))
 
     # Generate times for time domain plots
-    ts = np.linspace(0, N_per_segment, (N_per_segment + 1)) * max(0, sol.value(dts[0]))
-    for k in range(1, len(waypoints) - 1):
-        ts = np.concatenate(
-            (
-                ts,
-                ts[-1]
-                + np.linspace(0, N_per_segment, N_per_segment) * sol.value(dts[k]),
-            )
-        )
+    ts = [0]
+    for k in range(N):
+        ts.append(ts[-1] + sol.value(dts[int(k / N_per_segment)]))
 
     # Plot Y vs X
     plt.figure()
