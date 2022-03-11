@@ -221,7 +221,7 @@ class DifferentialDriveTrajectoryOptimizer:
 def main():
     traj = DifferentialDriveTrajectoryOptimizer()
     traj.add_pose(0, 0, 0)
-    traj.add_pose(4.5, 3, 0)
+    traj.add_translation(4.5, 3)
     traj.add_pose(4, 1, -math.pi)
     times, states, inputs = traj.optimize(2, [12, 12])
 
