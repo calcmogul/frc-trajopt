@@ -114,9 +114,9 @@ class DifferentialDriveTrajectoryOptimizer:
              no actuation
 
         Returns:
-        sol -- solution object
         times -- list of times in solution
-        X --
+        X -- matrix of states (states x times)
+        U -- matrix of inputs (inputs x times)
         """
         num_segments = len(self.waypoints) - 1
         vars_per_segment = 100
