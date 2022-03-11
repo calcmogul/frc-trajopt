@@ -55,17 +55,19 @@ class DifferentialDriveTrajectoryOptimizer:
             self.y = y
             self.heading = heading
 
-    def __init__(self, A, B, trackwidth) -> None:
+    def __init__(self, A, B, trackwidth, dt) -> None:
         """Constructs a differential drive trajectory optimizer.
 
         Keyword arguments:
-        A -- the system matrix.
-        B -- the input matrix.
+        A -- the system matrix
+        B -- the input matrix
         trackwidth -- the differential drive's trackwidth
+        dt -- the sample period
         """
         self.A = A
         self.B = B
         self.trackwidth = trackwidth
+        self.dt = dt
 
         self.opti = ca.Opti()
         self.waypoints = []  # List of Waypoints
@@ -88,8 +90,8 @@ class DifferentialDriveTrajectoryOptimizer:
 
         Returns:
         times -- list of times in solution
-        X -- matrix of states (states x times)
-        U -- matrix of inputs (inputs x times)
+        states -- matrix of states (states x times)
+        inputs -- matrix of inputs (inputs x times)
         """
         num_segments = len(self.waypoints) - 1
         vars_per_segment = 100
@@ -183,12 +185,10 @@ class DifferentialDriveTrajectoryOptimizer:
         for k in range(num_vars):
             times.append(times[-1] + sol.value(dts[int(k / vars_per_segment)]))
 
-        print("dts = ", [sol.value(dts[k]) for k in range(len(dts))])
-        print("Total time=", times[-1])
-
-        # TODO: Resample states and inputs at 5 ms period
-
-        return times, sol.value(X), sol.value(U)
+        # Resample trajectory at 5 ms period
+        return DifferentialDriveTrajectoryOptimizer.resample(
+            times, sol.value(X), sol.value(U), self.dt
+        )
 
     def f(
         self, x: npt.NDArray[np.float64], u: npt.NDArray[np.float64]
@@ -214,6 +214,68 @@ class DifferentialDriveTrajectoryOptimizer:
             + np.block([[np.zeros((3, 2))], [self.B]]) @ u
         )
 
+    @staticmethod
+    def resample(times, states, inputs, dt):
+        """Resample the given states and inputs at a new period.
+
+        Keyword arguments:
+        times -- list of times in solution
+        states -- matrix of states (states x times)
+        inputs -- matrix of inputs (inputs x times)
+        """
+        new_times = [0]
+        new_states = states[:, 0:1]
+        new_inputs = inputs[:, 0:1]
+
+        # Start at 1 because we use the previous sample later on for
+        # interpolation
+        sample = 1
+
+        for t in np.arange(dt, times[-1], dt):
+            new_times.append(t)
+
+            # Find first sample greater than or equal to the requested timestamp
+            while times[sample] < t:
+                sample += 1
+
+            prev_sample = sample - 1
+
+            # The sample's timestamp is now greater than or equal to the
+            # requested timestamp. If it is greater, we need to interpolate
+            # between the previous state and the current state to get the exact
+            # state that we want.
+
+            # If the difference in states is negligible, then we are spot on
+            if abs(times[sample] - times[prev_sample]) < 1e-9:
+                new_states = np.concatenate(
+                    (new_states, states[:, sample : sample + 1]), axis=1
+                )
+                new_inputs = np.concatenate(
+                    (new_inputs, inputs[:, sample : sample + 1]), axis=1
+                )
+                continue
+
+            # Interpolate between the two samples for the sample we want
+            x = lerp(
+                states[:, prev_sample : prev_sample + 1],
+                states[:, sample : sample + 1],
+                (t - times[prev_sample]) / (times[sample] - times[prev_sample]),
+            )
+            new_states = np.concatenate((new_states, x), axis=1)
+            u = lerp(
+                inputs[:, prev_sample : prev_sample + 1],
+                inputs[:, sample : sample + 1],
+                (t - times[prev_sample]) / (times[sample] - times[prev_sample]),
+            )
+            new_inputs = np.concatenate((new_inputs, u), axis=1)
+
+        # Add last sample as final element
+        new_times.append(new_times[-1] + dt)
+        new_states = np.concatenate((new_states, states[:, -1:]), axis=1)
+        new_inputs = np.concatenate((new_inputs, inputs[:, -1:]), axis=1)
+
+        return new_times, new_states, new_inputs
+
 
 def main():
     trackwidth = 0.699  # m
@@ -230,7 +292,7 @@ def main():
     A = np.array([[A1, A2], [A2, A1]])
     B = np.array([[B1, B2], [B2, B1]])
 
-    traj = DifferentialDriveTrajectoryOptimizer(A, B, trackwidth)
+    traj = DifferentialDriveTrajectoryOptimizer(A, B, trackwidth, 0.005)
     traj.add_pose(0, 0, 0)
     traj.add_translation(4.5, 3)
     traj.add_pose(4, 1, -math.pi)
