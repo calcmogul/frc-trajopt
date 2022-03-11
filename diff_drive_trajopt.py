@@ -62,26 +62,38 @@ def add_waypoint_constraints(opti, X, waypoints, N):
         opti.subject_to(X[2, k] == waypoints[i][2])
 
 
-def plot_states(times, states, state_labels, state_units):
-    """Plots states in time domain.
+def plot_states(times, states, labels, units):
+    """Plots states in time domain with one figure per unit.
 
     Keyword arguments:
     times -- list of times
     states -- matrix of states (states x times)
-    state_labels -- list of state label strings
-    state_units -- list of state unit strings
+    labels -- list of state label strings
+    units -- list of state unit strings
     """
-    for i in range(states.shape[0]):
+    # Build mapping from unit to states that have that unit
+    unit_to_data = {}
+    for i, unit in enumerate(units):
+        try:
+            unit_to_data[unit].append(i)
+        except KeyError:
+            unit_to_data[unit] = [i]
+
+    for unit, indices in unit_to_data.items():
         plt.figure()
-        plt.plot(times, states[i, :], label=state_labels[i])
-        plt.title(f"{state_labels[i]} vs time")
         plt.xlabel("Time (s)")
-        plt.ylabel(f"{state_labels[i]} ({state_units[i]})")
-        plt.legend()
+        plt.ylabel(unit)
+        for i in indices:
+            if len(indices) > 1:
+                plt.plot(times, states[i, :], label=labels[i])
+            else:
+                plt.plot(times, states[i, :])
+        if len(indices) > 1:
+            plt.legend()
 
 
-def plot_inputs(times, inputs, input_labels, input_units):
-    """Plots inputs in time domain.
+def plot_inputs(times, inputs, labels, units):
+    """Plots inputs in time domain with one figure per unit.
 
     Keyword arguments:
     times -- list of times
@@ -89,13 +101,25 @@ def plot_inputs(times, inputs, input_labels, input_units):
     input_labels -- list of input label strings
     input_units -- list of input unit strings
     """
-    for i in range(inputs.shape[0]):
+    # Build mapping from unit to inputs that have that unit
+    unit_to_data = {}
+    for i, unit in enumerate(units):
+        try:
+            unit_to_data[unit].append(i)
+        except KeyError:
+            unit_to_data[unit] = [i]
+
+    for unit, indices in unit_to_data.items():
         plt.figure()
-        plt.plot(times, inputs[i, :], label=input_labels[i])
-        plt.title(f"{input_labels[i]} vs time")
         plt.xlabel("Time (s)")
-        plt.ylabel(f"{input_labels[i]} ({input_units[i]})")
-        plt.legend()
+        plt.ylabel(unit)
+        for i in indices:
+            if len(indices) > 1:
+                plt.plot(times, inputs[i, :], label=labels[i])
+            else:
+                plt.plot(times, inputs[i, :])
+        if len(indices) > 1:
+            plt.legend()
 
 
 def main():
@@ -186,24 +210,22 @@ def main():
 
     # Plot Y vs X
     plt.figure()
-    plt.plot(states[0, :], states[1, :], label="Y vs X")
-    plt.title("Y vs X")
+    plt.plot(states[0, :], states[1, :])
     plt.xlabel("X (m)")
     plt.ylabel("Y (m)")
-    plt.legend()
 
     plot_states(
         ts,
         states,
         ["X", "Y", "Heading", "Left velocity", "Right velocity"],
-        ["m", "m", "rad", "m/s", "m/s"],
+        ["X (m)", "Y (m)", "Heading (rad)", "Velocity (m/s)", "Velocity (m/s)"],
     )
 
     plot_inputs(
         ts[:-1],
         inputs,
         ["Left voltage", "Right voltage"],
-        ["V", "V"],
+        ["Voltage (V)", "Voltage (V)"],
     )
 
     plt.show()
