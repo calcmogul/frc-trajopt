@@ -4,13 +4,17 @@ import casadi as ca
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 
 
-def f(x, u):
+def f(
+    x: npt.NDArray[np.float64], u: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64]:
     """The dynamical model for a differential drive.
 
-    States: [[x], [y], [heading], [left velocity], [right velocity]]
-    Inputs: [[left voltage], [right voltage]]
+    Keyword arguments:
+    x -- state column vector: [x, y, heading, left velocity, right velocity]
+    u -- input column vector: [left voltage, right voltage]
 
     Returns:
     dx/dt
@@ -46,23 +50,12 @@ def lerp(a, b, t):
     return a + t * (b - a)
 
 
-def add_waypoint_constraints(opti, X, waypoints, N):
-    """Add waypoint constraints.
-
-    Keyword arguments:
-    opti -- the optimizer
-    X -- the state variables from the optimizer
-    waypoints -- the list of waypoints
-    N -- number of points per segment between waypoints
-    """
-    for i in range(len(waypoints)):
-        k = i * N
-        opti.subject_to(X[0, k] == waypoints[i][0])
-        opti.subject_to(X[1, k] == waypoints[i][1])
-        opti.subject_to(X[2, k] == waypoints[i][2])
-
-
-def plot_data(times, data, labels, units):
+def plot_data(
+    times: list[float],
+    data: npt.NDArray[np.float64],
+    labels: list[str],
+    units: list[str],
+) -> None:
     """Plots data (e.g., states, inputs) in time domain with one figure per
     unit.
 
@@ -94,94 +87,143 @@ def plot_data(times, data, labels, units):
             plt.legend()
 
 
+class Waypoint:
+    def __init__(self, x: float, y: float, heading: float | None = None) -> None:
+        self.x = x
+        self.y = y
+        self.heading = heading
+
+
+class DifferentialDriveTrajectoryOptimizer:
+    def __init__(self) -> None:
+        self.opti = ca.Opti()
+        self.waypoints = []  # List of Waypoints
+
+    def add_pose(self, x: float, y: float, heading: float) -> None:
+        self.waypoints.append(Waypoint(x, y, heading))
+
+    def add_translation(self, x: float, y: float) -> None:
+        self.waypoints.append(Waypoint(x, y))
+
+    def optimize(self, q: float, r: list[float]):
+        """Generate the optimal trajectory.
+
+        Keyword arguments:
+        q -- minimum time cost weight
+        r -- list of the maximum allowed excursions of the control inputs from
+             no actuation
+
+        Returns:
+        sol -- solution object
+        times -- list of times in solution
+        X --
+        """
+        num_segments = len(self.waypoints) - 1
+        vars_per_segment = 100
+        num_vars = vars_per_segment * num_segments
+
+        X = self.opti.variable(5, num_vars + 1)
+        U = self.opti.variable(2, num_vars)
+
+        # Apply waypoint constraints
+        for i, waypoint in enumerate(self.waypoints):
+            self.opti.subject_to(X[0, i * vars_per_segment] == waypoint.x)
+            self.opti.subject_to(X[1, i * vars_per_segment] == waypoint.y)
+            if waypoint.heading is not None:
+                self.opti.subject_to(X[2, i * vars_per_segment] == waypoint.heading)
+
+        for segment in range(num_segments):
+            waypoint = self.waypoints[segment]
+            next_waypoint = self.waypoints[segment + 1]
+
+            segment_start = segment * vars_per_segment
+
+            # Set initial guess for poses as linear interpolation between
+            # waypoints
+            for i in range(vars_per_segment):
+                self.opti.set_initial(
+                    X[0, segment_start + i],
+                    lerp(waypoint.x, next_waypoint.x, i / vars_per_segment),
+                )
+                self.opti.set_initial(
+                    X[1, segment_start + i],
+                    lerp(waypoint.y, next_waypoint.y, i / vars_per_segment),
+                )
+                self.opti.set_initial(
+                    X[2, segment_start + i],
+                    math.atan2(
+                        next_waypoint.y - waypoint.y,
+                        next_waypoint.x - waypoint.x,
+                    ),
+                )
+
+        # Set up duration decision variables
+        Ts = []
+        dts = []
+        for segment in range(num_segments):
+            T = self.opti.variable()
+            self.opti.subject_to(T >= 0)
+            self.opti.set_initial(T, 1)
+            Ts.append(T)
+
+            dt = T / vars_per_segment
+            dts.append(dt)
+
+        # Linear cost on time
+        J = q * sum(Ts)
+
+        # Quadratic cost on control input
+        for k in range(num_vars):
+            R = np.diag(1 / np.square(r))
+            J += U[:, k].T @ R @ U[:, k] * dts[int(k / vars_per_segment)]
+
+        self.opti.minimize(J)
+
+        # Dynamics constraint
+        for k in range(num_vars):
+            # RK4 integration
+            dt = dts[int(k / vars_per_segment)]
+            k1 = f(X[:, k], U[:, k])
+            k2 = f(X[:, k] + dt / 2 * k1, U[:, k])
+            k3 = f(X[:, k] + dt / 2 * k2, U[:, k])
+            k4 = f(X[:, k] + dt * k3, U[:, k])
+            self.opti.subject_to(
+                X[:, k + 1] == X[:, k] + dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+            )
+
+        # Constrain start and end velocities to zero
+        self.opti.subject_to(X[3:5, 0] == np.zeros((2, 1)))
+        self.opti.subject_to(X[3:5, -1] == np.zeros((2, 1)))
+
+        # Require drivetrain always goes forward
+        # self.opti.subject_to((X[3, :] + X[4, :]) / 2 >= 0)
+
+        # Input constraint
+        self.opti.subject_to(self.opti.bounded(-r[0], U[0, :], r[0]))
+        self.opti.subject_to(self.opti.bounded(-r[1], U[1, :], r[1]))
+
+        self.opti.solver("ipopt")
+        sol = self.opti.solve()
+
+        # Generate times for time domain plots
+        times = [0]
+        for k in range(num_vars):
+            times.append(times[-1] + sol.value(dts[int(k / vars_per_segment)]))
+
+        print("dts = ", [sol.value(dts[k]) for k in range(len(dts))])
+        print("Total time=", times[-1])
+
+        # TODO: Resample states and inputs at 5 ms period
+
+        return times, sol.value(X), sol.value(U)
+
+
 def main():
-    waypoints = [(0, 0, 0), (4.5, 3, 0), (4, 1, math.pi)]
-    q = 2
-    r = [12, 12]
-    N_per_segment = 100
-
-    N = N_per_segment * (len(waypoints) - 1)
-
-    opti = ca.Opti()
-    X = opti.variable(5, N + 1)
-    U = opti.variable(2, N)
-
-    Ts = []
-    dts = []
-    for i in range(len(waypoints) - 1):
-        # Initial guess as linear interpolation between poses
-        for j in range(N_per_segment):
-            opti.set_initial(
-                X[0, N_per_segment * i + j],
-                lerp(waypoints[i][0], waypoints[i + 1][0], j / N_per_segment),
-            )
-            opti.set_initial(
-                X[1, N_per_segment * i + j],
-                lerp(waypoints[i][1], waypoints[i + 1][1], j / N_per_segment),
-            )
-            opti.set_initial(
-                X[2, N_per_segment * i + j],
-                math.atan2(
-                    waypoints[i + 1][1] - waypoints[i][1],
-                    waypoints[i + 1][0] - waypoints[i][0],
-                ),
-            )
-
-        T = opti.variable()
-        opti.subject_to(T >= 0)
-        opti.set_initial(T, 1)
-        Ts.append(T)
-
-        dt = T / N_per_segment
-        dts.append(dt)
-
-    # Linear cost on time
-    J = q * sum(Ts)
-
-    # Quadratic cost on control input
-    for k in range(N):
-        R = np.diag(1 / np.square(r))
-        J += U[:, k].T @ R @ U[:, k] * dts[int(k / N_per_segment)]
-
-    opti.minimize(J)
-
-    # Dynamics constraint
-    for k in range(N):
-        # RK4 integration
-        dt = dts[int(k / N_per_segment)]
-        k1 = f(X[:, k], U[:, k])
-        k2 = f(X[:, k] + dt / 2 * k1, U[:, k])
-        k3 = f(X[:, k] + dt / 2 * k2, U[:, k])
-        k4 = f(X[:, k] + dt * k3, U[:, k])
-        opti.subject_to(X[:, k + 1] == X[:, k] + dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4))
-
-    # Constrain start and end velocities to zero
-    opti.subject_to(X[3:5, 0] == np.zeros((2, 1)))
-    opti.subject_to(X[3:5, -1] == np.zeros((2, 1)))
-
-    # Require drivetrain always goes forward
-    # opti.subject_to((X[3, :] + X[4, :]) / 2 >= 0)
-
-    # Input constraint
-    opti.subject_to(opti.bounded(-12, U, 12))
-
-    add_waypoint_constraints(opti, X, waypoints, N_per_segment)
-
-    opti.solver("ipopt")
-    sol = opti.solve()
-
-    print("dts = ", [sol.value(dts[k]) for k in range(len(dts))])
-    print("Total time=", sum([sol.value(Ts[k]) for k in range(len(Ts))]))
-
-    # Generate times for time domain plots
-    ts = [0]
-    for k in range(N):
-        ts.append(ts[-1] + sol.value(dts[int(k / N_per_segment)]))
-
-    states = sol.value(X)
-    inputs = sol.value(U)
-
-    # TODO: Resample states and inputs at 5 ms period
+    traj = DifferentialDriveTrajectoryOptimizer()
+    traj.add_pose(0, 0, 0)
+    traj.add_pose(4.5, 3, 0)
+    traj.add_pose(4, 1, -math.pi)
+    times, states, inputs = traj.optimize(2, [12, 12])
 
     # Plot Y vs X
     plt.figure()
@@ -191,13 +233,13 @@ def main():
     plt.plot(states[0, :], states[1, :])
 
     plot_data(
-        ts,
+        times,
         states,
         ["X", "Y", "Heading", "Left velocity", "Right velocity"],
         ["X (m)", "Y (m)", "Heading (rad)", "Velocity (m/s)", "Velocity (m/s)"],
     )
     plot_data(
-        ts[:-1],
+        times[:-1],
         inputs,
         ["Left voltage", "Right voltage"],
         ["Voltage (V)", "Voltage (V)"],
