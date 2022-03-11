@@ -7,45 +7,6 @@ import numpy as np
 import numpy.typing as npt
 
 
-def f(
-    x: npt.NDArray[np.float64], u: npt.NDArray[np.float64]
-) -> npt.NDArray[np.float64]:
-    """The dynamical model for a differential drive.
-
-    Keyword arguments:
-    x -- state column vector: [x, y, heading, left velocity, right velocity]
-    u -- input column vector: [left voltage, right voltage]
-
-    Returns:
-    dx/dt
-    """
-    width = 0.699  # m
-    Kv_linear = 3.02  # V/(m/s)
-    Ka_linear = 0.642  # V/(m/s^2)
-    Kv_angular = 1.382  # V/(m/s)
-    Ka_angular = 0.08495  # V/(m/s^2)
-
-    A1 = 0.5 * (-(Kv_linear / Ka_linear + Kv_angular / Ka_angular))
-    A2 = 0.5 * (-(Kv_linear / Ka_linear - Kv_angular / Ka_angular))
-    B1 = 0.5 * (1 / Ka_linear + 1 / Ka_angular)
-    B2 = 0.5 * (1 / Ka_linear - 1 / Ka_angular)
-
-    A = np.array([[A1, A2], [A2, A1]])
-    B = np.array([[B1, B2], [B2, B1]])
-
-    v = (x[3] + x[4]) / 2
-
-    return (
-        ca.vertcat(
-            v * ca.cos(x[2]),
-            v * ca.sin(x[2]),
-            (x[4] - x[3]) / width,
-            A @ x[3:5],
-        )
-        + np.block([[np.zeros((3, 2))], [B]]) @ u
-    )
-
-
 def lerp(a, b, t):
     return a + t * (b - a)
 
@@ -87,23 +48,35 @@ def plot_data(
             plt.legend()
 
 
-class Waypoint:
-    def __init__(self, x: float, y: float, heading: float | None = None) -> None:
-        self.x = x
-        self.y = y
-        self.heading = heading
-
-
 class DifferentialDriveTrajectoryOptimizer:
-    def __init__(self) -> None:
+    class Waypoint:
+        def __init__(self, x: float, y: float, heading: float | None = None) -> None:
+            self.x = x
+            self.y = y
+            self.heading = heading
+
+    def __init__(self, A, B, trackwidth) -> None:
+        """Constructs a differential drive trajectory optimizer.
+
+        Keyword arguments:
+        A -- the system matrix.
+        B -- the input matrix.
+        trackwidth -- the differential drive's trackwidth
+        """
+        self.A = A
+        self.B = B
+        self.trackwidth = trackwidth
+
         self.opti = ca.Opti()
         self.waypoints = []  # List of Waypoints
 
     def add_pose(self, x: float, y: float, heading: float) -> None:
-        self.waypoints.append(Waypoint(x, y, heading))
+        self.waypoints.append(
+            DifferentialDriveTrajectoryOptimizer.Waypoint(x, y, heading)
+        )
 
     def add_translation(self, x: float, y: float) -> None:
-        self.waypoints.append(Waypoint(x, y))
+        self.waypoints.append(DifferentialDriveTrajectoryOptimizer.Waypoint(x, y))
 
     def optimize(self, q: float, r: list[float]):
         """Generate the optimal trajectory.
@@ -183,10 +156,10 @@ class DifferentialDriveTrajectoryOptimizer:
         for k in range(num_vars):
             # RK4 integration
             dt = dts[int(k / vars_per_segment)]
-            k1 = f(X[:, k], U[:, k])
-            k2 = f(X[:, k] + dt / 2 * k1, U[:, k])
-            k3 = f(X[:, k] + dt / 2 * k2, U[:, k])
-            k4 = f(X[:, k] + dt * k3, U[:, k])
+            k1 = self.f(X[:, k], U[:, k])
+            k2 = self.f(X[:, k] + dt / 2 * k1, U[:, k])
+            k3 = self.f(X[:, k] + dt / 2 * k2, U[:, k])
+            k4 = self.f(X[:, k] + dt * k3, U[:, k])
             self.opti.subject_to(
                 X[:, k + 1] == X[:, k] + dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
             )
@@ -217,9 +190,47 @@ class DifferentialDriveTrajectoryOptimizer:
 
         return times, sol.value(X), sol.value(U)
 
+    def f(
+        self, x: npt.NDArray[np.float64], u: npt.NDArray[np.float64]
+    ) -> npt.NDArray[np.float64]:
+        """The dynamical model for a differential drive.
+
+        Keyword arguments:
+        x -- state column vector: [x, y, heading, left velocity, right velocity]
+        u -- input column vector: [left voltage, right voltage]
+
+        Returns:
+        dx/dt
+        """
+        v = (x[3] + x[4]) / 2
+
+        return (
+            ca.vertcat(
+                v * ca.cos(x[2]),
+                v * ca.sin(x[2]),
+                (x[4] - x[3]) / self.trackwidth,
+                self.A @ x[3:5],
+            )
+            + np.block([[np.zeros((3, 2))], [self.B]]) @ u
+        )
+
 
 def main():
-    traj = DifferentialDriveTrajectoryOptimizer()
+    trackwidth = 0.699  # m
+    Kv_linear = 3.02  # V/(m/s)
+    Ka_linear = 0.642  # V/(m/s^2)
+    Kv_angular = 1.382  # V/(m/s)
+    Ka_angular = 0.08495  # V/(m/s^2)
+
+    A1 = 0.5 * (-(Kv_linear / Ka_linear + Kv_angular / Ka_angular))
+    A2 = 0.5 * (-(Kv_linear / Ka_linear - Kv_angular / Ka_angular))
+    B1 = 0.5 * (1 / Ka_linear + 1 / Ka_angular)
+    B2 = 0.5 * (1 / Ka_linear - 1 / Ka_angular)
+
+    A = np.array([[A1, A2], [A2, A1]])
+    B = np.array([[B1, B2], [B2, B1]])
+
+    traj = DifferentialDriveTrajectoryOptimizer(A, B, trackwidth)
     traj.add_pose(0, 0, 0)
     traj.add_translation(4.5, 3)
     traj.add_pose(4, 1, -math.pi)
