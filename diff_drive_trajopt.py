@@ -121,7 +121,10 @@ def main():
             )
             opti.set_initial(
                 X[2, N_per_segment * i + j],
-                lerp(waypoints[i][2], waypoints[i + 1][2], j / N_per_segment),
+                math.atan2(
+                    waypoints[i + 1][1] - waypoints[i][1],
+                    waypoints[i + 1][0] - waypoints[i][0],
+                ),
             )
 
         T = opti.variable()
