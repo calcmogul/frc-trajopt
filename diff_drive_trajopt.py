@@ -48,6 +48,40 @@ def plot_data(
             plt.legend()
 
 
+class TrajectoryConstraint:
+    pass
+
+
+class CentripetalAccelerationConstraint(TrajectoryConstraint):
+    def __init__(self, trackwidth: float, max_acceleration: float):
+        self.trackwidth = trackwidth
+        self.max_acceleration = max_acceleration
+
+    def apply(self, opti, X, U) -> None:
+        # a = v²/r
+        # k = 1/r, so a = v²k
+        # k = ω/v, so a = v²ω/v = vω
+        # a = (v_l + v_r) / 2 * (v_r - v_l) / trackwidth
+        # a = (v_r + v_l)(v_r - v_l) / (2 trackwidth)
+        # a = (v_r² - v_l²) / (2 trackwidth)
+        return opti.subject_to(
+            opti.bounded(
+                -self.max_acceleration,
+                (X[4, :] ** 2 - X[3, :] ** 2) / (2 * self.trackwidth),
+                self.max_acceleration,
+            )
+        )
+
+
+class MaxVelocityConstraint(TrajectoryConstraint):
+    def __init__(self, max_velocity: float):
+        self.max_velocity = max_velocity
+
+    def apply(self, opti, X, U):
+        v = (X[3, :] + X[4, :]) / 2
+        return opti.subject_to(opti.bounded(-self.max_velocity, v, self.max_velocity))
+
+
 class DifferentialDriveTrajectoryOptimizer:
     class Waypoint:
         def __init__(self, x: float, y: float, heading: float | None = None) -> None:
@@ -71,6 +105,7 @@ class DifferentialDriveTrajectoryOptimizer:
 
         self.opti = ca.Opti()
         self.waypoints = []  # List of Waypoints
+        self.constraints = []  # List of TrajectoryConstraints
 
     def add_pose(self, x: float, y: float, heading: float) -> None:
         self.waypoints.append(
@@ -79,6 +114,14 @@ class DifferentialDriveTrajectoryOptimizer:
 
     def add_translation(self, x: float, y: float) -> None:
         self.waypoints.append(DifferentialDriveTrajectoryOptimizer.Waypoint(x, y))
+
+    def add_centripetal_acceleration_constraint(self, max_acceleration: float) -> None:
+        self.constraints.append(
+            CentripetalAccelerationConstraint(self.trackwidth, max_acceleration)
+        )
+
+    def add_max_velocity_constraint(self, max_velocity: float) -> None:
+        self.constraints.append(MaxVelocityConstraint(max_velocity))
 
     def optimize(self, q: float, r: list[float]):
         """Generate the optimal trajectory.
@@ -177,6 +220,10 @@ class DifferentialDriveTrajectoryOptimizer:
         self.opti.subject_to(self.opti.bounded(-r[0], U[0, :], r[0]))
         self.opti.subject_to(self.opti.bounded(-r[1], U[1, :], r[1]))
 
+        # Apply custom contraints
+        for constraint in self.constraints:
+            constraint.apply(self.opti, X, U)
+
         self.opti.solver("ipopt")
         sol = self.opti.solve()
 
@@ -223,7 +270,7 @@ class DifferentialDriveTrajectoryOptimizer:
         states -- matrix of states (states x times)
         inputs -- matrix of inputs (inputs x times)
         """
-        new_times = [0]
+        new_times = [times[0]]
         new_states = states[:, 0:1]
         new_inputs = inputs[:, 0:1]
 
@@ -231,48 +278,46 @@ class DifferentialDriveTrajectoryOptimizer:
         # interpolation
         sample = 1
 
-        for t in np.arange(dt, times[-1], dt):
-            new_times.append(t)
-
-            # Find first sample greater than or equal to the requested timestamp
-            while times[sample] < t:
+        while sample < len(times) - 1 and new_times[-1] < times[-1]:
+            # Find first sample >= the requested timestamp
+            while times[sample] < new_times[-1] + dt:
                 sample += 1
+
+            if sample == len(times) - 1:
+                break
 
             prev_sample = sample - 1
 
-            # The sample's timestamp is now greater than or equal to the
-            # requested timestamp. If it is greater, we need to interpolate
-            # between the previous state and the current state to get the exact
-            # state that we want.
-
-            # If the difference in states is negligible, then we are spot on
             if abs(times[sample] - times[prev_sample]) < 1e-9:
+                # If the difference in sample times is negligible, use that
+                # sample
                 new_states = np.concatenate(
                     (new_states, states[:, sample : sample + 1]), axis=1
                 )
                 new_inputs = np.concatenate(
                     (new_inputs, inputs[:, sample : sample + 1]), axis=1
                 )
-                continue
-
-            # Interpolate between the two samples for the sample we want
-            x = lerp(
-                states[:, prev_sample : prev_sample + 1],
-                states[:, sample : sample + 1],
-                (t - times[prev_sample]) / (times[sample] - times[prev_sample]),
-            )
-            new_states = np.concatenate((new_states, x), axis=1)
-            u = lerp(
-                inputs[:, prev_sample : prev_sample + 1],
-                inputs[:, sample : sample + 1],
-                (t - times[prev_sample]) / (times[sample] - times[prev_sample]),
-            )
-            new_inputs = np.concatenate((new_inputs, u), axis=1)
+            else:
+                # Interpolate between previous and current sample
+                x = lerp(
+                    states[:, prev_sample : prev_sample + 1],
+                    states[:, sample : sample + 1],
+                    ((new_times[-1] + dt) - times[prev_sample])
+                    / (times[sample] - times[prev_sample]),
+                )
+                new_states = np.concatenate((new_states, x), axis=1)
+                u = lerp(
+                    inputs[:, prev_sample : prev_sample + 1],
+                    inputs[:, sample : sample + 1],
+                    ((new_times[-1] + dt) - times[prev_sample])
+                    / (times[sample] - times[prev_sample]),
+                )
+                new_inputs = np.concatenate((new_inputs, u), axis=1)
+            new_times.append(new_times[-1] + dt)
 
         # Add last sample as final element
         new_times.append(new_times[-1] + dt)
         new_states = np.concatenate((new_states, states[:, -1:]), axis=1)
-        new_inputs = np.concatenate((new_inputs, inputs[:, -1:]), axis=1)
 
         return new_times, new_states, new_inputs
 
@@ -296,6 +341,7 @@ def main():
     traj.add_pose(0, 0, 0)
     traj.add_translation(4.5, 3)
     traj.add_pose(4, 1, -math.pi)
+    traj.add_centripetal_acceleration_constraint(4)
     times, states, inputs = traj.optimize(2, [12, 12])
 
     # Plot Y vs X
