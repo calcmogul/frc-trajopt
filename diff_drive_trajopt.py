@@ -62,16 +62,17 @@ def add_waypoint_constraints(opti, X, waypoints, N):
         opti.subject_to(X[2, k] == waypoints[i][2])
 
 
-def plot_states(times, states, labels, units):
-    """Plots states in time domain with one figure per unit.
+def plot_data(times, data, labels, units):
+    """Plots data (e.g., states, inputs) in time domain with one figure per
+    unit.
 
     Keyword arguments:
     times -- list of times
-    states -- matrix of states (states x times)
-    labels -- list of state label strings
-    units -- list of state unit strings
+    data -- matrix of data (states or inputs x times)
+    labels -- list of data label strings
+    units -- list of data unit strings
     """
-    # Build mapping from unit to states that have that unit
+    # Build mapping from unit to data that have that unit
     unit_to_data = {}
     for i, unit in enumerate(units):
         try:
@@ -81,43 +82,14 @@ def plot_states(times, states, labels, units):
 
     for unit, indices in unit_to_data.items():
         plt.figure()
+        plt.title(f"{unit.split()[0]} vs Time")
         plt.xlabel("Time (s)")
         plt.ylabel(unit)
         for i in indices:
             if len(indices) > 1:
-                plt.plot(times, states[i, :], label=labels[i])
+                plt.plot(times, data[i, :], label=labels[i])
             else:
-                plt.plot(times, states[i, :])
-        if len(indices) > 1:
-            plt.legend()
-
-
-def plot_inputs(times, inputs, labels, units):
-    """Plots inputs in time domain with one figure per unit.
-
-    Keyword arguments:
-    times -- list of times
-    inputs -- matrix of inputs (inputs x times)
-    input_labels -- list of input label strings
-    input_units -- list of input unit strings
-    """
-    # Build mapping from unit to inputs that have that unit
-    unit_to_data = {}
-    for i, unit in enumerate(units):
-        try:
-            unit_to_data[unit].append(i)
-        except KeyError:
-            unit_to_data[unit] = [i]
-
-    for unit, indices in unit_to_data.items():
-        plt.figure()
-        plt.xlabel("Time (s)")
-        plt.ylabel(unit)
-        for i in indices:
-            if len(indices) > 1:
-                plt.plot(times, inputs[i, :], label=labels[i])
-            else:
-                plt.plot(times, inputs[i, :])
+                plt.plot(times, data[i, :])
         if len(indices) > 1:
             plt.legend()
 
@@ -210,18 +182,18 @@ def main():
 
     # Plot Y vs X
     plt.figure()
-    plt.plot(states[0, :], states[1, :])
+    plt.title("Y vs X")
     plt.xlabel("X (m)")
     plt.ylabel("Y (m)")
+    plt.plot(states[0, :], states[1, :])
 
-    plot_states(
+    plot_data(
         ts,
         states,
         ["X", "Y", "Heading", "Left velocity", "Right velocity"],
         ["X (m)", "Y (m)", "Heading (rad)", "Velocity (m/s)", "Velocity (m/s)"],
     )
-
-    plot_inputs(
+    plot_data(
         ts[:-1],
         inputs,
         ["Left voltage", "Right voltage"],
