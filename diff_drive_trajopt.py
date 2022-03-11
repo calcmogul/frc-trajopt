@@ -62,6 +62,42 @@ def add_waypoint_constraints(opti, X, waypoints, N):
         opti.subject_to(X[2, k] == waypoints[i][2])
 
 
+def plot_states(times, states, state_labels, state_units):
+    """Plots states in time domain.
+
+    Keyword arguments:
+    times -- list of times
+    states -- matrix of states (states x times)
+    state_labels -- list of state label strings
+    state_units -- list of state unit strings
+    """
+    for i in range(states.shape[0]):
+        plt.figure()
+        plt.plot(times, states[i, :], label=state_labels[i])
+        plt.title(f"{state_labels[i]} vs time")
+        plt.xlabel("Time (s)")
+        plt.ylabel(f"{state_labels[i]} ({state_units[i]})")
+        plt.legend()
+
+
+def plot_inputs(times, inputs, input_labels, input_units):
+    """Plots inputs in time domain.
+
+    Keyword arguments:
+    times -- list of times
+    inputs -- matrix of inputs (inputs x times)
+    input_labels -- list of input label strings
+    input_units -- list of input unit strings
+    """
+    for i in range(inputs.shape[0]):
+        plt.figure()
+        plt.plot(times, inputs[i, :], label=input_labels[i])
+        plt.title(f"{input_labels[i]} vs time")
+        plt.xlabel("Time (s)")
+        plt.ylabel(f"{input_labels[i]} ({input_units[i]})")
+        plt.legend()
+
+
 def main():
     waypoints = [(0, 0, 0), (4.5, 3, 0), (4, 1, math.pi)]
     q = 2
@@ -135,8 +171,6 @@ def main():
     opti.solver("ipopt")
     sol = opti.solve()
 
-    # TODO: Resample states and inputs at 5 ms period
-
     print("dts = ", [sol.value(dts[k]) for k in range(len(dts))])
     print("Total time=", sum([sol.value(Ts[k]) for k in range(len(Ts))]))
 
@@ -145,60 +179,32 @@ def main():
     for k in range(N):
         ts.append(ts[-1] + sol.value(dts[int(k / N_per_segment)]))
 
+    states = sol.value(X)
+    inputs = sol.value(U)
+
+    # TODO: Resample states and inputs at 5 ms period
+
     # Plot Y vs X
     plt.figure()
-    plt.plot(sol.value(X[0, :]), sol.value(X[1, :]), label="Y vs X")
+    plt.plot(states[0, :], states[1, :], label="Y vs X")
     plt.title("Y vs X")
     plt.xlabel("X (m)")
     plt.ylabel("Y (m)")
     plt.legend()
 
-    # Print total time
-    sol_dts = []
-    for k in range(len(waypoints) - 1):
-        sol_dts.append(sol.value(Ts[k] / N_per_segment))
+    plot_states(
+        ts,
+        states,
+        ["X", "Y", "Heading", "Left velocity", "Right velocity"],
+        ["m", "m", "rad", "m/s", "m/s"],
+    )
 
-    # Plot X vs time
-    plt.figure()
-    plt.plot(ts, sol.value(sol.value(X[0, :])), label="X")
-    plt.title("X vs time")
-    plt.xlabel("Time (s)")
-    plt.ylabel("X (m)")
-    plt.legend()
-
-    # Plot Y vs time
-    plt.figure()
-    plt.plot(ts, sol.value(sol.value(X[1, :])), label="Y")
-    plt.title("Y vs time")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Y (m)")
-    plt.legend()
-
-    # Plot heading vs time
-    plt.figure()
-    plt.plot(ts, sol.value(sol.value(X[2, :])), label="Heading")
-    plt.title("Heading vs time")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Heading (rad)")
-    plt.legend()
-
-    # Plot wheel velocities vs time
-    plt.figure()
-    plt.plot(ts, sol.value(sol.value(X[3, :])), label="Left velocity")
-    plt.plot(ts, sol.value(sol.value(X[4, :])), label="Right velocity")
-    plt.title("Velocity vs time")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Velocity (m/s)")
-    plt.legend()
-
-    # Plot voltages vs time
-    plt.figure()
-    plt.plot(ts[:-1], sol.value(sol.value(U[0, :])), label="Left voltage")
-    plt.plot(ts[:-1], sol.value(sol.value(U[1, :])), label="Right voltage")
-    plt.title("Voltage vs time")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Voltage (V)")
-    plt.legend()
+    plot_inputs(
+        ts[:-1],
+        inputs,
+        ["Left voltage", "Right voltage"],
+        ["V", "V"],
+    )
 
     plt.show()
 
