@@ -218,9 +218,9 @@ class DifferentialDriveTrajectoryOptimizer:
 def main():
     trackwidth = 0.699  # m
     Kv_linear = 3.02  # V/(m/s)
-    Ka_linear = 0.642  # V/(m/s^2)
+    Ka_linear = 0.642  # V/(m/s²)
     Kv_angular = 1.382  # V/(m/s)
-    Ka_angular = 0.08495  # V/(m/s^2)
+    Ka_angular = 0.08495  # V/(m/s²)
 
     A1 = 0.5 * (-(Kv_linear / Ka_linear + Kv_angular / Ka_angular))
     A2 = 0.5 * (-(Kv_linear / Ka_linear - Kv_angular / Ka_angular))
