@@ -143,7 +143,7 @@ class DifferentialDriveTrajectoryOptimizer:
         self.opti.subject_to(self.opti.bounded(-r[0], U[0, :], r[0]))
         self.opti.subject_to(self.opti.bounded(-r[1], U[1, :], r[1]))
 
-        # Apply custom contraints
+        # Apply custom constraints
         for constraint in self.constraints:
             constraint.apply(self.opti, X, U)
 
