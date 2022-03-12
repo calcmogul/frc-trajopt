@@ -2,6 +2,7 @@ import casadi as ca
 import math
 import numpy as np
 import numpy.typing as npt
+from typing import List, Optional
 
 from wpimath.geometry import Translation2d, Pose2d
 from wpimath.math_util import lerp
@@ -14,8 +15,8 @@ class DifferentialDriveTrajectoryOptimizer:
             self,
             x: float,
             y: float,
-            heading: float | None = None,
-            constraints: list[TrajectoryConstraint] = None,
+            heading: Optional[float] = None,
+            constraints: List[TrajectoryConstraint] = None,
         ) -> None:
             """Constructs a waypoint as either a pose or translation with an
             optional list of constraints to apply between this waypoint and the
@@ -54,7 +55,7 @@ class DifferentialDriveTrajectoryOptimizer:
         self.constraints = []  # List of TrajectoryConstraints
 
     def add_pose(
-        self, pose: Pose2d, constraints: list[TrajectoryConstraint] = None
+        self, pose: Pose2d, constraints: List[TrajectoryConstraint] = None
     ) -> None:
         """Add a new trajectory segment terminated by the given pose with an
         optional list of constraints to apply within that segment.
@@ -70,7 +71,7 @@ class DifferentialDriveTrajectoryOptimizer:
         )
 
     def add_translation(
-        self, translation: Translation2d, constraints: list[TrajectoryConstraint] = None
+        self, translation: Translation2d, constraints: List[TrajectoryConstraint] = None
     ) -> None:
         """Add a new trajectory segment terminated by the given translation
         (i.e., no heading constraint) with an optional list of constraints to
@@ -94,7 +95,7 @@ class DifferentialDriveTrajectoryOptimizer:
         """
         self.constraints.append(constraint)
 
-    def optimize(self, q: float, r: list[float]):
+    def optimize(self, q: float, r: List[float]):
         """Generate the optimal trajectory.
 
         Keyword arguments:
