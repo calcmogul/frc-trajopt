@@ -7,6 +7,7 @@ import numpy.typing as npt
 from typing import List
 
 from wpimath.geometry import Translation2d, Pose2d
+from wpimath.system.plant import LinearSystemId
 from wpimath.trajectory import DifferentialDriveTrajectoryOptimizer
 from wpimath.trajectory.constraint import MaxVelocityConstraint
 
@@ -55,15 +56,11 @@ def main():
     Kv_angular = 1.382  # V/(m/s)
     Ka_angular = 0.08495  # V/(m/s²)
 
-    A1 = 0.5 * (-(Kv_linear / Ka_linear + Kv_angular / Ka_angular))
-    A2 = 0.5 * (-(Kv_linear / Ka_linear - Kv_angular / Ka_angular))
-    B1 = 0.5 * (1 / Ka_linear + 1 / Ka_angular)
-    B2 = 0.5 * (1 / Ka_linear - 1 / Ka_angular)
+    system = LinearSystemId.identify_drivetrain_system(
+        Kv_linear, Ka_linear, Kv_angular, Ka_angular
+    )
 
-    A = np.array([[A1, A2], [A2, A1]])
-    B = np.array([[B1, B2], [B2, B1]])
-
-    traj = DifferentialDriveTrajectoryOptimizer(A, B, trackwidth, 0.005)
+    traj = DifferentialDriveTrajectoryOptimizer(system, trackwidth, 0.005)
     traj.add_pose(Pose2d(0, 0, 0))
     traj.add_translation(Translation2d(4.5, 3), [MaxVelocityConstraint(2)])
     traj.add_pose(Pose2d(4, 1, -math.pi))

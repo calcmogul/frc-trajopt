@@ -6,6 +6,7 @@ from typing import List, Optional
 
 from wpimath.geometry import Translation2d, Pose2d
 from wpimath.math_util import lerp
+from wpimath.system import LinearSystem
 from wpimath.trajectory.constraint import *
 
 
@@ -36,17 +37,16 @@ class DifferentialDriveTrajectoryOptimizer:
             else:
                 self.constraints = []
 
-    def __init__(self, A, B, trackwidth, dt) -> None:
+    def __init__(self, system: LinearSystem, trackwidth: float, dt: float) -> None:
         """Constructs a differential drive trajectory optimizer.
 
         Keyword arguments:
-        A -- the system matrix
-        B -- the input matrix
+        system -- the differential drive's velocity dynamics
         trackwidth -- the differential drive's trackwidth
         dt -- the sample period
         """
-        self.A = A
-        self.B = B
+        self.A = system.A
+        self.B = system.B
         self.trackwidth = trackwidth
         self.dt = dt
 
