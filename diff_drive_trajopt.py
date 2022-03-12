@@ -4,6 +4,7 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+from typing import List
 
 from wpimath.geometry import Translation2d, Pose2d
 from wpimath.trajectory import DifferentialDriveTrajectoryOptimizer
@@ -11,10 +12,10 @@ from wpimath.trajectory.constraint import MaxVelocityConstraint
 
 
 def plot_data(
-    times: list[float],
+    times: List[float],
     data: npt.NDArray[np.float64],
-    labels: list[str],
-    units: list[str],
+    labels: List[str],
+    units: List[str],
 ) -> None:
     """Plots data (e.g., states, inputs) in time domain with one figure per
     unit.
