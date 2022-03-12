@@ -10,10 +10,30 @@ from wpimath.trajectory.constraint import *
 
 class DifferentialDriveTrajectoryOptimizer:
     class Waypoint:
-        def __init__(self, x: float, y: float, heading: float | None = None) -> None:
+        def __init__(
+            self,
+            x: float,
+            y: float,
+            heading: float | None = None,
+            constraints: list[TrajectoryConstraint] = None,
+        ) -> None:
+            """Constructs a waypoint as either a pose or translation with an
+            optional list of constraints to apply between this waypoint and the
+            previous one.
+
+            Keyword arguments:
+            x -- the waypoint x position
+            y -- the waypoint y position
+            heading -- the waypoint heading (optional)
+            constraints -- the list of constraints to apply (optional)
+            """
             self.x = x
             self.y = y
             self.heading = heading
+            if constraints is not None:
+                self.constraints = constraints
+            else:
+                self.constraints = []
 
     def __init__(self, A, B, trackwidth, dt) -> None:
         """Constructs a differential drive trajectory optimizer.
@@ -33,17 +53,45 @@ class DifferentialDriveTrajectoryOptimizer:
         self.waypoints = []  # List of Waypoints
         self.constraints = []  # List of TrajectoryConstraints
 
-    def add_pose(self, pose: Pose2d) -> None:
+    def add_pose(
+        self, pose: Pose2d, constraints: list[TrajectoryConstraint] = None
+    ) -> None:
+        """Add a new trajectory segment terminated by the given pose with an
+        optional list of constraints to apply within that segment.
+
+        Keyword arguments:
+        pose -- the pose to add
+        constraints -- the list of constraints to apply (optional)
+        """
         self.waypoints.append(
-            DifferentialDriveTrajectoryOptimizer.Waypoint(pose.x, pose.y, pose.rotation)
+            DifferentialDriveTrajectoryOptimizer.Waypoint(
+                pose.x, pose.y, pose.rotation, constraints
+            )
         )
 
-    def add_translation(self, translation: Translation2d) -> None:
+    def add_translation(
+        self, translation: Translation2d, constraints: list[TrajectoryConstraint] = None
+    ) -> None:
+        """Add a new trajectory segment terminated by the given translation
+        (i.e., no heading constraint) with an optional list of constraints to
+        apply within that segment.
+
+        Keyword arguments:
+        translation -- the translation to add
+        constraints -- the list of constraints to apply (optional)
+        """
         self.waypoints.append(
-            DifferentialDriveTrajectoryOptimizer.Waypoint(translation.x, translation.y)
+            DifferentialDriveTrajectoryOptimizer.Waypoint(
+                translation.x, translation.y, constraints=constraints
+            )
         )
 
     def add_constraint(self, constraint: TrajectoryConstraint) -> None:
+        """Add the given constraint to all trajectory segments.
+
+        Keyword arguments:
+        constraint -- the constraint to apply
+        """
         self.constraints.append(constraint)
 
     def optimize(self, q: float, r: list[float]):
@@ -72,6 +120,13 @@ class DifferentialDriveTrajectoryOptimizer:
             self.opti.subject_to(X[1, i * vars_per_segment] == waypoint.y)
             if waypoint.heading is not None:
                 self.opti.subject_to(X[2, i * vars_per_segment] == waypoint.heading)
+            if i > 0:
+                for constraint in waypoint.constraints:
+                    constraint.apply(
+                        self.opti,
+                        X[:, (i - 1) * vars_per_segment : i * vars_per_segment],
+                        U[:, (i - 1) * vars_per_segment : i * vars_per_segment],
+                    )
 
         for segment in range(num_segments):
             waypoint = self.waypoints[segment]

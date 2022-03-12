@@ -7,6 +7,7 @@ import numpy.typing as npt
 
 from wpimath.geometry import Translation2d, Pose2d
 from wpimath.trajectory import DifferentialDriveTrajectoryOptimizer
+from wpimath.trajectory.constraint import MaxVelocityConstraint
 
 
 def plot_data(
@@ -63,7 +64,7 @@ def main():
 
     traj = DifferentialDriveTrajectoryOptimizer(A, B, trackwidth, 0.005)
     traj.add_pose(Pose2d(0, 0, 0))
-    traj.add_translation(Translation2d(4.5, 3))
+    traj.add_translation(Translation2d(4.5, 3), [MaxVelocityConstraint(2)])
     traj.add_pose(Pose2d(4, 1, -math.pi))
     times, states, inputs = traj.optimize(2, [12, 12])
 
