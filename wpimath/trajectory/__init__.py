@@ -123,7 +123,7 @@ class DifferentialDriveTrajectoryOptimizer:
         X = self.problem.variable(5, num_vars + 1)
 
         # Inputs: [left voltage, right voltage]
-        U = self.problem.variable(2, num_vars)
+        U = self.problem.variable(2, num_vars + 1)
 
         # Apply waypoint constraints
         for i, waypoint in enumerate(self.waypoints):
@@ -200,18 +200,93 @@ class DifferentialDriveTrajectoryOptimizer:
         self.problem.minimize(J)
 
         # Dynamics constraint
-        for k in range(num_vars):
-            # RK4 integration
+        for k in range(0, num_vars, 2):
+            # Direct collocation
             h = dts[int(k / vars_per_segment)]
+
             x_k = X[:, k]
             u_k = U[:, k]
-            x_k1 = X[:, k + 1]
+            f_k = self.f(x_k, u_k)
 
-            k1 = self.f(x_k, u_k)
-            k2 = self.f(x_k + h / 2 * k1, u_k)
-            k3 = self.f(x_k + h / 2 * k2, u_k)
-            k4 = self.f(x_k + h * k3, u_k)
-            self.problem.subject_to(x_k1 == x_k + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4))
+            x_c = X[:, k + 1]
+            u_c = U[:, k + 1]
+            f_c = self.f(x_c, u_c)
+
+            x_k1 = X[:, k + 2]
+            u_k1 = U[:, k + 2]
+            f_k1 = self.f(x_k1, u_k1)
+
+            x_1 = (
+                1
+                / 686
+                * (
+                    (39 * math.sqrt(21) + 231) * x_k
+                    + 224 * x_c
+                    + (-39 * math.sqrt(21) + 231) * x_k1
+                    + h
+                    * (
+                        (3 * math.sqrt(21) + 21) * f_k
+                        - 16 * math.sqrt(21) * f_c
+                        + (3 * math.sqrt(21) - 21) * f_k1
+                    )
+                )
+            )
+            u_1 = lerp(u_k, u_k1, 0.5 - math.sqrt(3 / 7) / 2)
+            f_1 = self.f(x_1, u_1)
+
+            x_2 = (
+                1
+                / 686
+                * (
+                    (-39 * math.sqrt(21) + 231) * x_k
+                    + 224 * x_c
+                    + (39 * math.sqrt(21) + 231) * x_k1
+                    + h
+                    * (
+                        (-3 * math.sqrt(21) + 21) * f_k
+                        + 16 * math.sqrt(21) * f_c
+                        + (-3 * math.sqrt(21) - 21) * f_k1
+                    )
+                )
+            )
+            u_2 = lerp(u_k, u_k1, 0.5 + math.sqrt(3 / 7) / 2)
+            f_2 = self.f(x_2, u_2)
+
+            delta_1 = (
+                1
+                / 360
+                * (
+                    (32 * math.sqrt(21) + 180) * x_k
+                    - 64 * math.sqrt(21) * x_c
+                    + (32 * math.sqrt(21) - 180) * x_k1
+                    + h
+                    * (
+                        (9 + math.sqrt(21)) * f_k
+                        + 98 * f_1
+                        + 64 * f_c
+                        + (9 - math.sqrt(21)) * f_k1
+                    )
+                )
+            )
+            self.problem.subject_to(delta_1 == 0)
+
+            delta_2 = (
+                1
+                / 360
+                * (
+                    (-32 * math.sqrt(21) + 180) * x_k
+                    + 64 * math.sqrt(21) * x_c
+                    + (-32 * math.sqrt(21) - 180) * x_k1
+                    + h
+                    * (
+                        (9 - math.sqrt(21)) * f_k
+                        + 98 * f_2
+                        + 64 * f_c
+                        + (9 + math.sqrt(21)) * f_k1
+                    )
+                )
+            )
+            self.problem.subject_to(delta_2 == 0)
 
         # Constrain start and end velocities to zero
         self.problem.subject_to(X[3:5, 0] == np.zeros((2, 1)))
