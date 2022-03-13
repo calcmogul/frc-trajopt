@@ -233,14 +233,11 @@ class DifferentialDriveTrajectoryOptimizer:
         """
         v = (x[3] + x[4]) / 2
 
-        return (
-            ca.vertcat(
-                v * ca.cos(x[2]),
-                v * ca.sin(x[2]),
-                (x[4] - x[3]) / self.trackwidth,
-                self.A @ x[3:5],
-            )
-            + np.block([[np.zeros((3, 2))], [self.B]]) @ u
+        return ca.vertcat(
+            v * ca.cos(x[2]),
+            v * ca.sin(x[2]),
+            (x[4] - x[3]) / self.trackwidth,
+            self.A @ x[3:5] + self.B @ u,
         )
 
     @staticmethod
