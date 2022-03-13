@@ -116,14 +116,14 @@ class DifferentialDriveTrajectoryOptimizer:
         inputs -- matrix of inputs (inputs x times)
         """
         num_segments = len(self.waypoints) - 1
-        vars_per_segment = 100
+        vars_per_segment = 10  # Must be even
         num_vars = vars_per_segment * num_segments
 
         # States: [x, y, heading, left velocity, right velocity]
         X = self.problem.variable(5, num_vars + 1)
 
         # Inputs: [left voltage, right voltage]
-        U = self.problem.variable(2, num_vars)
+        U = self.problem.variable(2, num_vars + 1)
 
         # Apply waypoint constraints
         for i, waypoint in enumerate(self.waypoints):
@@ -200,18 +200,28 @@ class DifferentialDriveTrajectoryOptimizer:
         self.problem.minimize(J)
 
         # Dynamics constraint
-        for k in range(num_vars):
-            # RK4 integration
+        for k in range(int(num_vars / 2)):
+            # Direct collocation
+            # Even indices are samples; odd indices are collocation points
             h = dts[int(k / vars_per_segment)]
-            x_k = X[:, k]
-            u_k = U[:, k]
-            x_k1 = X[:, k + 1]
 
-            k1 = self.f(x_k, u_k)
-            k2 = self.f(x_k + h / 2 * k1, u_k)
-            k3 = self.f(x_k + h / 2 * k2, u_k)
-            k4 = self.f(x_k + h * k3, u_k)
-            self.problem.subject_to(x_k1 == x_k + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4))
+            u_k = U[:, 2 * k]
+            u_ck = U[:, 2 * k + 1]
+            u_k1 = U[:, 2 * k + 2]
+            self.problem.subject_to(u_ck == 0.5 * (u_k + u_k1))
+
+            x_k = X[:, 2 * k]
+            x_ck = X[:, 2 * k + 1]
+            x_k1 = X[:, 2 * k + 2]
+            self.problem.subject_to(
+                x_ck
+                == 0.5 * (x_k + x_k1) + h / 8 * (self.f(x_k, u_k) - self.f(x_k1, u_k1))
+            )
+
+            xdot_ck = -3.0 / (2.0 * h) * (x_k - x_k1) - 0.25 * (
+                self.f(x_k, u_k) + self.f(x_k1, u_k1)
+            )
+            self.problem.subject_to(xdot_ck == self.f(x_ck, u_ck))
 
         # Constrain start and end velocities to zero
         self.problem.subject_to(X[3:5, 0] == np.zeros((2, 1)))
