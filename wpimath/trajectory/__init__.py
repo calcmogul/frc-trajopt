@@ -117,7 +117,12 @@ class DifferentialDriveTrajectoryOptimizer:
 
         # Apply waypoint constraints
         for i, waypoint in enumerate(self.waypoints):
-            segment_end = i * vars_per_segment
+            # If it's the first waypoint, constraint the first state. Otherwise,
+            # constrain the last one.
+            if i == 0:
+                segment_end = 0
+            else:
+                segment_end = i * vars_per_segment - 1
 
             self.opti.subject_to(X[0, segment_end] == waypoint.x)
             self.opti.subject_to(X[1, segment_end] == waypoint.y)
