@@ -259,7 +259,7 @@ class DifferentialDriveTrajectoryOptimizer:
 
         while sample < len(times) - 1 and new_times[-1] < times[-1]:
             # Find first sample >= the requested timestamp
-            while times[sample] < new_times[-1] + dt:
+            while sample < len(times) - 1 and times[sample] < new_times[-1] + dt:
                 sample += 1
 
             if sample == len(times) - 1:
