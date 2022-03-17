@@ -190,14 +190,16 @@ class DifferentialDriveTrajectoryOptimizer:
         # Dynamics constraint
         for k in range(num_vars):
             # RK4 integration
-            dt = dts[int(k / vars_per_segment)]
-            k1 = self.f(X[:, k], U[:, k])
-            k2 = self.f(X[:, k] + dt / 2 * k1, U[:, k])
-            k3 = self.f(X[:, k] + dt / 2 * k2, U[:, k])
-            k4 = self.f(X[:, k] + dt * k3, U[:, k])
-            self.opti.subject_to(
-                X[:, k + 1] == X[:, k] + dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
-            )
+            h = dts[int(k / vars_per_segment)]
+            x_k = X[:, k]
+            u_k = U[:, k]
+            x_k1 = X[:, k + 1]
+
+            k1 = self.f(x_k, u_k)
+            k2 = self.f(x_k + h / 2 * k1, u_k)
+            k3 = self.f(x_k + h / 2 * k2, u_k)
+            k4 = self.f(x_k + h * k3, u_k)
+            self.opti.subject_to(x_k1 == x_k + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4))
 
         # Constrain start and end velocities to zero
         self.opti.subject_to(X[3:5, 0] == np.zeros((2, 1)))
