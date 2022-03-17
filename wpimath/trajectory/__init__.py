@@ -112,12 +112,15 @@ class DifferentialDriveTrajectoryOptimizer:
         vars_per_segment = 100
         num_vars = vars_per_segment * num_segments
 
+        # States: [x, y, heading, left velocity, right velocity]
         X = self.opti.variable(5, num_vars + 1)
+
+        # Inputs: [left voltage, right voltage]
         U = self.opti.variable(2, num_vars)
 
         # Apply waypoint constraints
         for i, waypoint in enumerate(self.waypoints):
-            # If it's the first waypoint, constraint the first state. Otherwise,
+            # If it's the first waypoint, constrain the first state. Otherwise,
             # constrain the last one.
             if i == 0:
                 segment_end = 0
@@ -199,9 +202,6 @@ class DifferentialDriveTrajectoryOptimizer:
         # Constrain start and end velocities to zero
         self.opti.subject_to(X[3:5, 0] == np.zeros((2, 1)))
         self.opti.subject_to(X[3:5, -1] == np.zeros((2, 1)))
-
-        # Require drivetrain always goes forward
-        # self.opti.subject_to((X[3, :] + X[4, :]) / 2 >= 0)
 
         # Input constraint
         self.opti.subject_to(self.opti.bounded(-r[0], U[0, :], r[0]))
