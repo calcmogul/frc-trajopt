@@ -60,8 +60,9 @@ def main():
         Kv_linear, Ka_linear, Kv_angular, Ka_angular
     )
 
-    traj = DifferentialDriveTrajectoryOptimizer(system, trackwidth, 0.005)
-    traj.add_pose(Pose2d(0, 0, 0))
+    traj = DifferentialDriveTrajectoryOptimizer(
+        system, trackwidth, 0.005, Pose2d(0, 0, 0)
+    )
     traj.add_translation(Translation2d(4.5, 3), [MaxVelocityConstraint(2)])
     traj.add_pose(Pose2d(4, 1, -math.pi))
     times, states, inputs = traj.optimize(2, [12, 12])

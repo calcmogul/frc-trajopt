@@ -37,13 +37,16 @@ class DifferentialDriveTrajectoryOptimizer:
             else:
                 self.constraints = []
 
-    def __init__(self, system: LinearSystem, trackwidth: float, dt: float) -> None:
+    def __init__(
+        self, system: LinearSystem, trackwidth: float, dt: float, initial_pose: Pose2d
+    ) -> None:
         """Constructs a differential drive trajectory optimizer.
 
         Keyword arguments:
         system -- the differential drive's velocity dynamics
         trackwidth -- the differential drive's trackwidth
         dt -- the sample period
+        initial_pose -- the differential drive's initial pose
         """
         self.A = system.A
         self.B = system.B
@@ -51,7 +54,11 @@ class DifferentialDriveTrajectoryOptimizer:
         self.dt = dt
 
         self.opti = ca.Opti()
-        self.waypoints = []  # List of Waypoints
+        self.waypoints = [
+            DifferentialDriveTrajectoryOptimizer.Waypoint(
+                initial_pose.x, initial_pose.y, initial_pose.rotation
+            )
+        ]
         self.constraints = []  # List of TrajectoryConstraints
 
     def add_pose(
