@@ -37,7 +37,7 @@ def plot_data(
 
     for unit, indices in unit_to_data.items():
         plt.figure()
-        plt.title(f"{unit.split()[0]} vs Time")
+        plt.title(f"{unit[:unit.find('(')].rstrip()} vs Time")
         plt.xlabel("Time (s)")
         plt.ylabel(unit)
         for i in indices:
