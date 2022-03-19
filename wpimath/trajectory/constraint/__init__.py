@@ -11,7 +11,7 @@ class TrajectoryConstraint:
         pass
 
 
-class CentripetalAccelerationConstraint(TrajectoryConstraint):
+class DifferentialDriveCentripetalAccelerationConstraint(TrajectoryConstraint):
     def __init__(self, trackwidth: float, max_acceleration: float):
         self.trackwidth = trackwidth
         self.max_acceleration = max_acceleration
@@ -32,7 +32,7 @@ class CentripetalAccelerationConstraint(TrajectoryConstraint):
         )
 
 
-class MaxVelocityConstraint(TrajectoryConstraint):
+class DifferentialDriveMaxVelocityConstraint(TrajectoryConstraint):
     def __init__(self, max_velocity: float):
         self.max_velocity = max_velocity
 
@@ -41,7 +41,7 @@ class MaxVelocityConstraint(TrajectoryConstraint):
         opti.subject_to(opti.bounded(-self.max_velocity, v, self.max_velocity))
 
 
-class MaxAccelerationConstraint(TrajectoryConstraint):
+class DifferentialDriveMaxAccelerationConstraint(TrajectoryConstraint):
     def __init__(self, system: LinearSystem, max_acceleration: float):
         self.system = system
         self.max_acceleration = max_acceleration

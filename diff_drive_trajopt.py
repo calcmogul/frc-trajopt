@@ -9,7 +9,7 @@ from typing import List
 from wpimath.geometry import Translation2d, Pose2d
 from wpimath.system.plant import LinearSystemId
 from wpimath.trajectory import DifferentialDriveTrajectoryOptimizer
-from wpimath.trajectory.constraint import MaxVelocityConstraint
+from wpimath.trajectory.constraint import DifferentialDriveMaxVelocityConstraint
 
 
 def plot_data(
@@ -63,7 +63,9 @@ def main():
     traj = DifferentialDriveTrajectoryOptimizer(
         system, trackwidth, 0.005, Pose2d(0, 0, 0)
     )
-    traj.add_translation(Translation2d(4.5, 3), [MaxVelocityConstraint(2)])
+    traj.add_translation(
+        Translation2d(4.5, 3), [DifferentialDriveMaxVelocityConstraint(2)]
+    )
     traj.add_pose(Pose2d(4, 1, -math.pi))
     times, states, inputs = traj.optimize(2, [12, 12])
 
