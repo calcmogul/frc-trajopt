@@ -11,6 +11,31 @@ class TrajectoryConstraint:
         pass
 
 
+class UnicycleCentripetalAccelerationConstraint(TrajectoryConstraint):
+    def __init__(self, max_acceleration: float):
+        self.max_acceleration = max_acceleration
+
+    def apply(self, opti, X, U) -> None:
+        # a = v²/r
+        # k = 1/r, so a = v²k
+        # k = ω/v, so a = v²ω/v = vω
+        opti.subject_to(
+            opti.bounded(
+                -self.max_acceleration,
+                U[0, :] * U[1, :],
+                self.max_acceleration,
+            )
+        )
+
+
+class UnicycleMaxVelocityConstraint(TrajectoryConstraint):
+    def __init__(self, max_velocity: float):
+        self.max_velocity = max_velocity
+
+    def apply(self, opti, X, U) -> None:
+        opti.subject_to(opti.bounded(-self.max_velocity, U[0, :], self.max_velocity))
+
+
 class DifferentialDriveCentripetalAccelerationConstraint(TrajectoryConstraint):
     def __init__(self, trackwidth: float, max_acceleration: float):
         self.trackwidth = trackwidth
