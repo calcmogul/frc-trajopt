@@ -119,11 +119,53 @@ class DifferentialDriveTrajectoryOptimizer:
         vars_per_segment = 100
         num_vars = vars_per_segment * num_segments
 
+        # Model:
+        #
         # States: [x, y, heading, left velocity, right velocity]
-        X = self.problem.variable(5, num_vars + 1)
-
         # Inputs: [left voltage, right voltage]
-        U = self.problem.variable(2, num_vars)
+        #
+        # x' = v cos(θ)
+        # y' = v sin(θ)
+        # θ' = (v_r - v_l) / trackwidth
+        # v_l' = a_00 v_l + a_01 v_r + b_00 u_l + b_10 u_r
+        # v_r' = a_10 v_l + a_11 v_r + b_10 u_l + b_11 u_r
+        #
+        # v = (v_l + v_r) / 2
+        #   = √(x'²+y'²)
+        #
+        # Decision variables: [x, y, θ, x', y', θ', x", y", θ"]
+        #
+        # θ = tan⁻¹(y', x')
+        # tan(θ) = y'/x'
+        # sin(θ)/cos(θ) = y'/x'
+        # x' sin(θ) = y' cos(θ)
+        #
+        # x" sin(θ) + x' cos(θ) θ' = y" cos(θ) - y' sin(θ) θ'
+        #
+        # v_l = v - θ' trackwidth/2
+        #     = √(x'²+y'²) - θ' trackwidth/2
+        # v_l' = (x'x"+y'y")/√(x'²+y'²) - θ" trackwidth/2
+        #
+        # v_r = v + dθ/dt trackwidth/2
+        #     = √(dx/dt²+dy/dt²) + θ' trackwidth/2
+        # v_r' = (x'x"+y'y")/√(x'²+y'²) + θ" trackwidth/2
+        #
+        # x_v = [v_l, v_r]ᵀ
+        # a_v = [v_l', v_r']ᵀ
+        #
+        # a_v = Ax_v + Bu
+        # u = B⁻¹(a_v - Ax_v)
+        #
+        # Subject to:
+        #   x' sin(θ) = y' cos(θ)
+        #   x" sin(θ) + x' cos(θ) θ' = y" cos(θ) - y' sin(θ) θ'
+        #   u_min <= u <= u_max
+        #
+        # The first two constraints are for heading and heading rate since those
+        # are overdetermined by the other variables.
+
+        # States: [x, y, θ, x', y', θ', x", y", θ"]
+        X = self.problem.variable(9, num_vars + 1)
 
         # Apply waypoint constraints
         for i, waypoint in enumerate(self.waypoints):
