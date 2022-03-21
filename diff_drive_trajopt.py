@@ -41,10 +41,14 @@ def plot_data(
         plt.xlabel("Time (s)")
         plt.ylabel(unit)
         for i in indices:
-            if len(indices) > 1:
-                plt.plot(times, data[i, :], label=labels[i])
+            if len(data.shape) > 1:
+                d = data[i, :]
             else:
-                plt.plot(times, data[i, :])
+                d = data
+            if len(indices) > 1:
+                plt.plot(times, d, label=labels[i])
+            else:
+                plt.plot(times, d)
         if len(indices) > 1:
             plt.legend()
 
