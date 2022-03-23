@@ -57,6 +57,10 @@ def plot_data(
             plt.legend()
 
 
+def curvature(xdot, ydot, xddot, yddot, v):
+    return (xdot * yddot - ydot * xddot) / v**3
+
+
 def main():
     trackwidth = 0.699  # m
     Kv_linear = 3.02  # V/(m/s)
@@ -98,6 +102,61 @@ def main():
         ["Left voltage", "Right voltage"],
         ["Voltage (V)", "Voltage (V)"],
     )
+
+    # v = (v_l + v_r) / 2
+    # x' = v cos(θ)
+    # y' = v sin(θ)
+    #
+    # [a_l, a_r] = B⁻¹(dx/dt − Ax)
+    # a = (a_l + a_r) / 2
+    # x" = v' cos(θ) + v (-sin(θ) ω)
+    #    = a cos(θ) - vω sin(θ)
+    #    = a cos(θ) - v²/r sin(θ)
+    # y" = v' sin(θ) + v (cos(θ) ω)
+    #    = a sin(θ) + vω cos(θ)
+    #    = a sin(θ) + v²/r cos(θ)
+    #
+    # κ = (x'y" - y'x") / √(x'² + y'²)³
+    #   = (x'y" - y'x") / v³
+    #   = ((v cos(θ))(a sin(θ) + ...?
+    #
+    # vk = w
+    # k = w/v
+    # k = (v_r - v_l) / trackwidth / ((v_l + v_r) / 2)
+    #   = (v_r - v_l) / trackwidth * 2 / (v_l + v_r)
+    #   = 2(v_r - v_l) / (trackwidth * (v_l + v_r))
+
+    # Plot curvature vs time
+    ks = []
+    for k in range(states.shape[1]):
+        ks.append(
+            2
+            * (states[4, k] - states[3, k])
+            / (trackwidth * (states[3, k] + states[4, k]))
+        )
+    plt.figure()
+    plt.title("Curvature vs Time")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Curvature (rad/m)")
+    plt.plot(times, ks)
+
+    dkdts = [0]
+    for k in range(1, len(ks)):
+        dkdts.append((ks[k] - ks[k - 1]) / (times[k] - times[k - 1]))
+    plt.figure()
+    plt.title("dk/dt vs Time")
+    plt.xlabel("Time (s)")
+    plt.ylabel("dk/dt (rad/m/s)")
+    plt.plot(times, dkdts)
+
+    d2kdt2s = [0]
+    for k in range(1, len(ks)):
+        d2kdt2s.append((dkdts[k] - dkdts[k - 1]) / (times[k] - times[k - 1]))
+    plt.figure()
+    plt.title("d²k/dt² vs Time")
+    plt.xlabel("Time (s)")
+    plt.ylabel("d²k/dt² (rad/m/s²)")
+    plt.plot(times, d2kdt2s)
 
     plt.show()
 
