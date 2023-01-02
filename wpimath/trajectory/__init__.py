@@ -137,7 +137,12 @@ class DifferentialDriveTrajectoryOptimizer:
             self.opti.subject_to(X[0, segment_end] == waypoint.x)
             self.opti.subject_to(X[1, segment_end] == waypoint.y)
             if waypoint.heading is not None:
-                self.opti.subject_to(X[2, segment_end] == waypoint.heading)
+                self.opti.subject_to(
+                    ca.cos(X[2, segment_end]) == math.cos(waypoint.heading)
+                )
+                self.opti.subject_to(
+                    ca.sin(X[2, segment_end]) == math.sin(waypoint.heading)
+                )
             if i > 0:
                 for constraint in waypoint.constraints:
                     segment_start = (i - 1) * vars_per_segment
