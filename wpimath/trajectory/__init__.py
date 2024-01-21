@@ -178,31 +178,27 @@ class DifferentialDriveTrajectoryOptimizer:
                 )
 
         # Set up duration decision variables
-        Ts = []
         dts = []
-        for segment in range(num_segments):
-            T = self.opti.variable()
-            self.opti.subject_to(T >= 0)
-            self.opti.set_initial(T, 1)
-            Ts.append(T)
-
-            dt = T / vars_per_segment
+        for k in range(num_vars):
+            dt = self.opti.variable()
+            self.opti.subject_to(dt >= 0)
+            self.opti.set_initial(dt, 1 / vars_per_segment)
             dts.append(dt)
 
         # Linear cost on time
-        J = q * sum(Ts)
+        J = q * sum(ca.fabs(dt) for dt in dts)
 
         # Quadratic cost on control input
         for k in range(num_vars):
             R = np.diag(1 / np.square(r))
-            J += U[:, k].T @ R @ U[:, k] * dts[int(k / vars_per_segment)]
+            J += U[:, k].T @ R @ U[:, k]
 
         self.opti.minimize(J)
 
         # Dynamics constraint
         for k in range(num_vars):
             # RK4 integration
-            h = dts[int(k / vars_per_segment)]
+            h = dts[k]
             x_k = X[:, k]
             u_k = U[:, k]
             x_k1 = X[:, k + 1]
@@ -231,7 +227,7 @@ class DifferentialDriveTrajectoryOptimizer:
         # Generate times for time domain plots
         times = [0]
         for k in range(num_vars):
-            times.append(times[-1] + sol.value(dts[int(k / vars_per_segment)]))
+            times.append(times[-1] + sol.value(dts[k]))
 
         # Resample trajectory at 5 ms period
         return DifferentialDriveTrajectoryOptimizer.resample(
