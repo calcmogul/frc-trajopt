@@ -1,8 +1,9 @@
 import math
 
-import casadi as ca
 import numpy as np
-import numpy.typing as npt
+import sleipnir.autodiff as autodiff
+from sleipnir.autodiff import VariableMatrix, block
+from sleipnir.optimization import Problem, bounds
 from typing import List, Optional
 from wpimath.geometry import Translation2d, Pose2d
 from wpimath.math_util import lerp
@@ -53,7 +54,7 @@ class DifferentialDriveTrajectoryOptimizer:
         self.trackwidth = trackwidth
         self.dt = dt
 
-        self.problem = ca.Opti()
+        self.problem = Problem()
         self.waypoints = [
             DifferentialDriveTrajectoryOptimizer.Waypoint(
                 initial_pose.x, initial_pose.y, initial_pose.rotation
@@ -120,10 +121,10 @@ class DifferentialDriveTrajectoryOptimizer:
         num_vars = vars_per_segment * num_segments
 
         # States: [x, y, heading, left velocity, right velocity]
-        X = self.problem.variable(5, num_vars + 1)
+        X = self.problem.decision_variable(5, num_vars + 1)
 
         # Inputs: [left voltage, right voltage]
-        U = self.problem.variable(2, num_vars)
+        U = self.problem.decision_variable(2, num_vars)
 
         # Apply waypoint constraints
         for i, waypoint in enumerate(self.waypoints):
@@ -138,10 +139,10 @@ class DifferentialDriveTrajectoryOptimizer:
             self.problem.subject_to(X[1, segment_end] == waypoint.y)
             if waypoint.heading is not None:
                 self.problem.subject_to(
-                    ca.cos(X[2, segment_end]) == math.cos(waypoint.heading)
+                    autodiff.cos(X[2, segment_end]) == math.cos(waypoint.heading)
                 )
                 self.problem.subject_to(
-                    ca.sin(X[2, segment_end]) == math.sin(waypoint.heading)
+                    autodiff.sin(X[2, segment_end]) == math.sin(waypoint.heading)
                 )
             if i > 0:
                 for constraint in waypoint.constraints:
@@ -161,29 +162,26 @@ class DifferentialDriveTrajectoryOptimizer:
             # Set initial guess for poses as linear interpolation between
             # waypoints
             for i in range(vars_per_segment):
-                self.problem.set_initial(
-                    X[0, segment_start + i],
-                    lerp(waypoint.x, next_waypoint.x, i / vars_per_segment),
+                X[0, segment_start + i].set_value(
+                    lerp(waypoint.x, next_waypoint.x, i / vars_per_segment)
                 )
-                self.problem.set_initial(
-                    X[1, segment_start + i],
-                    lerp(waypoint.y, next_waypoint.y, i / vars_per_segment),
+                X[1, segment_start + i].set_value(
+                    lerp(waypoint.y, next_waypoint.y, i / vars_per_segment)
                 )
-                self.problem.set_initial(
-                    X[2, segment_start + i],
+                X[2, segment_start + i].set_value(
                     math.atan2(
                         next_waypoint.y - waypoint.y,
                         next_waypoint.x - waypoint.x,
-                    ),
+                    )
                 )
 
         # Set up duration decision variables
         Ts = []
         dts = []
         for segment in range(num_segments):
-            T = self.problem.variable()
+            T = self.problem.decision_variable()
             self.problem.subject_to(T >= 0)
-            self.problem.set_initial(T, 1)
+            T.set_value(1)
             Ts.append(T)
 
             dt = T / vars_per_segment
@@ -218,29 +216,26 @@ class DifferentialDriveTrajectoryOptimizer:
         self.problem.subject_to(X[3:5, -1] == np.zeros((2, 1)))
 
         # Input constraint
-        self.problem.subject_to(self.problem.bounded(-r[0], U[0, :], r[0]))
-        self.problem.subject_to(self.problem.bounded(-r[1], U[1, :], r[1]))
+        self.problem.subject_to(bounds(-r[0], U[0, :], r[0]))
+        self.problem.subject_to(bounds(-r[1], U[1, :], r[1]))
 
         # Apply custom constraints
         for constraint in self.constraints:
             constraint.apply(self.problem, X, U)
 
-        self.problem.solver("ipopt")
-        sol = self.problem.solve()
+        self.problem.solve(diagnostics=True)
 
         # Generate times for time domain plots
         times = [0]
         for k in range(num_vars):
-            times.append(times[-1] + sol.value(dts[int(k / vars_per_segment)]))
+            times.append(times[-1] + dts[int(k / vars_per_segment)].value())
 
         # Resample trajectory at 5 ms period
         return DifferentialDriveTrajectoryOptimizer.resample(
-            times, sol.value(X), sol.value(U), self.dt
+            times, X.value(), U.value(), self.dt
         )
 
-    def f(
-        self, x: npt.NDArray[np.float64], u: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def f(self, x: VariableMatrix, u: VariableMatrix) -> VariableMatrix:
         """The dynamical model for a differential drive.
 
         Keyword arguments:
@@ -252,11 +247,13 @@ class DifferentialDriveTrajectoryOptimizer:
         """
         v = (x[3] + x[4]) / 2
 
-        return ca.vertcat(
-            v * ca.cos(x[2]),
-            v * ca.sin(x[2]),
-            (x[4] - x[3]) / self.trackwidth,
-            self.A @ x[3:5] + self.B @ u,
+        return block(
+            [
+                [VariableMatrix(v * autodiff.cos(x[2]))],
+                [VariableMatrix(v * autodiff.sin(x[2]))],
+                [VariableMatrix((x[4] - x[3]) / self.trackwidth)],
+                [self.A @ x[3:5, 0] + self.B @ u],
+            ],
         )
 
     @staticmethod

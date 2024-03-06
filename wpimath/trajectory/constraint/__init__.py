@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
 import numpy as np
+from sleipnir.optimization import bounds
 from wpimath.system import LinearSystem
 
 
@@ -25,7 +26,7 @@ class DifferentialDriveCentripetalAccelerationConstraint(TrajectoryConstraint):
         # a = (v_r + v_l)(v_r - v_l) / (2 trackwidth)
         # a = (v_r² - v_l²) / (2 trackwidth)
         problem.subject_to(
-            problem.bounded(
+            bounds(
                 -self.max_acceleration,
                 (X[4, :] ** 2 - X[3, :] ** 2) / (2 * self.trackwidth),
                 self.max_acceleration,
@@ -39,7 +40,7 @@ class DifferentialDriveMaxVelocityConstraint(TrajectoryConstraint):
 
     def apply(self, problem, X, U) -> None:
         v = (X[3, :] + X[4, :]) / 2
-        problem.subject_to(problem.bounded(-self.max_velocity, v, self.max_velocity))
+        problem.subject_to(bounds(-self.max_velocity, v, self.max_velocity))
 
 
 class DifferentialDriveMaxAccelerationConstraint(TrajectoryConstraint):
@@ -50,9 +51,7 @@ class DifferentialDriveMaxAccelerationConstraint(TrajectoryConstraint):
     def apply(self, problem, X, U) -> None:
         dxdt = self.system.A @ X[3:5, :] + self.system.B @ U
         a = (dxdt[0, :] + dxdt[1, :]) / 2
-        problem.subject_to(
-            problem.bounded(-self.max_acceleration, a, self.max_acceleration)
-        )
+        problem.subject_to(bounds(-self.max_acceleration, a, self.max_acceleration))
 
 
 class BoxObstacleConstraint(TrajectoryConstraint):
@@ -64,7 +63,7 @@ class BoxObstacleConstraint(TrajectoryConstraint):
 
     def apply(self, problem, X, U) -> None:
         import math
-        from casadi import sqrt
+        from sleipnir.autodiff import sqrt
 
         x = X[0, :]
         y = X[1, :]
