@@ -5,7 +5,6 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-
 from wpimath.geometry import Pose2d, Translation2d
 from wpimath.system import Models
 from wpimath.trajectory import DifferentialDriveTrajectoryOptimizer
