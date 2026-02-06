@@ -8,7 +8,7 @@ class TrajectoryConstraint:
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def apply(opti, X, U) -> None:
+    def apply(problem, X, U) -> None:
         pass
 
 
@@ -17,15 +17,15 @@ class DifferentialDriveCentripetalAccelerationConstraint(TrajectoryConstraint):
         self.trackwidth = trackwidth
         self.max_acceleration = max_acceleration
 
-    def apply(self, opti, X, U) -> None:
+    def apply(self, problem, X, U) -> None:
         # a = v²/r
         # k = 1/r, so a = v²k
         # k = ω/v, so a = v²ω/v = vω
         # a = (v_l + v_r) / 2 * (v_r - v_l) / trackwidth
         # a = (v_r + v_l)(v_r - v_l) / (2 trackwidth)
         # a = (v_r² - v_l²) / (2 trackwidth)
-        opti.subject_to(
-            opti.bounded(
+        problem.subject_to(
+            problem.bounded(
                 -self.max_acceleration,
                 (X[4, :] ** 2 - X[3, :] ** 2) / (2 * self.trackwidth),
                 self.max_acceleration,
@@ -37,9 +37,9 @@ class DifferentialDriveMaxVelocityConstraint(TrajectoryConstraint):
     def __init__(self, max_velocity: float):
         self.max_velocity = max_velocity
 
-    def apply(self, opti, X, U) -> None:
+    def apply(self, problem, X, U) -> None:
         v = (X[3, :] + X[4, :]) / 2
-        opti.subject_to(opti.bounded(-self.max_velocity, v, self.max_velocity))
+        problem.subject_to(problem.bounded(-self.max_velocity, v, self.max_velocity))
 
 
 class DifferentialDriveMaxAccelerationConstraint(TrajectoryConstraint):
@@ -47,10 +47,12 @@ class DifferentialDriveMaxAccelerationConstraint(TrajectoryConstraint):
         self.system = system
         self.max_acceleration = max_acceleration
 
-    def apply(self, opti, X, U) -> None:
+    def apply(self, problem, X, U) -> None:
         dxdt = self.system.A @ X[3:5, :] + self.system.B @ U
         a = (dxdt[0, :] + dxdt[1, :]) / 2
-        opti.subject_to(opti.bounded(-self.max_acceleration, a, self.max_acceleration))
+        problem.subject_to(
+            problem.bounded(-self.max_acceleration, a, self.max_acceleration)
+        )
 
 
 class BoxObstacleConstraint(TrajectoryConstraint):
@@ -60,7 +62,7 @@ class BoxObstacleConstraint(TrajectoryConstraint):
         self.r_x = width / 2.0
         self.r_y = height / 2.0
 
-    def apply(self, opti, X, U) -> None:
+    def apply(self, problem, X, U) -> None:
         import math
         from casadi import sqrt
 
@@ -88,7 +90,7 @@ class BoxObstacleConstraint(TrajectoryConstraint):
         # |x + y| + |y - x| > √2
         # √((x + y)²) + √((y − x)²) > √2
         for col in range(x_new.shape[1]):
-            opti.subject_to(
+            problem.subject_to(
                 sqrt((x_new[0, col] + y_new[0, col]) ** 2)
                 + sqrt((y_new[0, col] - x_new[0, col]) ** 2)
                 > math.sqrt(2)
@@ -101,9 +103,9 @@ class CircleObstacleConstraint(TrajectoryConstraint):
         self.center_y = center_y
         self.radius = radius
 
-    def apply(self, opti, X, U) -> None:
+    def apply(self, problem, X, U) -> None:
         for col in range(X.shape[1]):
-            opti.subject_to(
+            problem.subject_to(
                 (X[0, col] - self.center_x) ** 2 + (X[1, col] - self.center_y) ** 2
                 > self.radius**2
             )
