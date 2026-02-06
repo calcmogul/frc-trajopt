@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
+import numpy as np
 from wpimath.system import LinearSystem
 
 
@@ -66,8 +67,8 @@ class BoxObstacleConstraint(TrajectoryConstraint):
         x = X[0, :]
         y = X[1, :]
 
-        x_new = (x - self.center_x) / self.r_x
-        y_new = (y - self.center_y) / self.r_y
+        x_new = (x - np.full((1, x.shape[1]), self.center_x)) / self.r_x
+        y_new = (y - np.full((1, y.shape[1]), self.center_y)) / self.r_y
 
         # |x| + |y| > 1
         #
