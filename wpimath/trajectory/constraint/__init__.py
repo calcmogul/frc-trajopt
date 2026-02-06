@@ -86,9 +86,12 @@ class BoxObstacleConstraint(TrajectoryConstraint):
         # |x + y| + |y - x| > √2
         # |x + y| + |y - x| > √2
         # √((x + y)²) + √((y − x)²) > √2
-        opti.subject_to(
-            sqrt((x_new + y_new) ** 2) + sqrt((y_new - x_new) ** 2) > math.sqrt(2)
-        )
+        for col in range(x_new.shape[1]):
+            opti.subject_to(
+                sqrt((x_new[0, col] + y_new[0, col]) ** 2)
+                + sqrt((y_new[0, col] - x_new[0, col]) ** 2)
+                > math.sqrt(2)
+            )
 
 
 class CircleObstacleConstraint(TrajectoryConstraint):
@@ -98,7 +101,8 @@ class CircleObstacleConstraint(TrajectoryConstraint):
         self.radius = radius
 
     def apply(self, opti, X, U) -> None:
-        opti.subject_to(
-            (X[0, :] - self.center_x) ** 2 + (X[1, :] - self.center_y) ** 2
-            > self.radius**2
-        )
+        for col in range(X.shape[1]):
+            opti.subject_to(
+                (X[0, col] - self.center_x) ** 2 + (X[1, col] - self.center_y) ** 2
+                > self.radius**2
+            )
