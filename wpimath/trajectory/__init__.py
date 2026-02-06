@@ -1,9 +1,9 @@
-import casadi as ca
 import math
+
+import casadi as ca
 import numpy as np
 import numpy.typing as npt
 from typing import List, Optional
-
 from wpimath.geometry import Translation2d, Pose2d
 from wpimath.math_util import lerp
 from wpimath.system import LinearSystem
