@@ -19,15 +19,16 @@ class DifferentialDriveTrajectoryOptimizer:
             heading: float | None = None,
             constraints: list[TrajectoryConstraint] | None = None,
         ) -> None:
-            """Constructs a waypoint as either a pose or translation with an
+            """
+            Constructs a waypoint as either a pose or translation with an
             optional list of constraints to apply between this waypoint and the
             previous one.
 
-            Keyword arguments:
-            x -- the waypoint x position
-            y -- the waypoint y position
-            heading -- the waypoint heading (optional)
-            constraints -- the list of constraints to apply (optional)
+            Args:
+                x: The waypoint x position.
+                y: The waypoint y position.
+                heading: The waypoint heading (optional).
+                constraints: The list of constraints to apply (optional).
             """
             self.x = x
             self.y = y
@@ -40,13 +41,14 @@ class DifferentialDriveTrajectoryOptimizer:
     def __init__(
         self, system: LinearSystem, trackwidth: float, dt: float, initial_pose: Pose2d
     ) -> None:
-        """Constructs a differential drive trajectory optimizer.
+        """
+        Constructs a differential drive trajectory optimizer.
 
-        Keyword arguments:
-        system -- the differential drive's velocity dynamics
-        trackwidth -- the differential drive's trackwidth
-        dt -- the sample period
-        initial_pose -- the differential drive's initial pose
+        Args:
+            system: The differential drive's velocity dynamics.
+            trackwidth: The differential drive's trackwidth.
+            dt: The sample period.
+            initial_pose: The differential drive's initial pose.
         """
         self.A = system.A
         self.B = system.B
@@ -64,12 +66,13 @@ class DifferentialDriveTrajectoryOptimizer:
     def add_pose(
         self, pose: Pose2d, constraints: list[TrajectoryConstraint] | None = None
     ) -> None:
-        """Add a new trajectory segment terminated by the given pose with an
+        """
+        Add a new trajectory segment terminated by the given pose with an
         optional list of constraints to apply within that segment.
 
-        Keyword arguments:
-        pose -- the pose to add
-        constraints -- the list of constraints to apply (optional)
+        Args:
+            pose: The pose to add.
+            constraints: The list of constraints to apply (optional).
         """
         self.waypoints.append(
             DifferentialDriveTrajectoryOptimizer.Waypoint(
@@ -82,13 +85,14 @@ class DifferentialDriveTrajectoryOptimizer:
         translation: Translation2d,
         constraints: list[TrajectoryConstraint] | None = None,
     ) -> None:
-        """Add a new trajectory segment terminated by the given translation
-        (i.e., no heading constraint) with an optional list of constraints to
-        apply within that segment.
+        """
+        Add a new trajectory segment terminated by the given translation (i.e.,
+        no heading constraint) with an optional list of constraints to apply
+        within that segment.
 
-        Keyword arguments:
-        translation -- the translation to add
-        constraints -- the list of constraints to apply (optional)
+        Args:
+            translation: The translation to add.
+            constraints: The list of constraints to apply (optional).
         """
         self.waypoints.append(
             DifferentialDriveTrajectoryOptimizer.Waypoint(
@@ -97,25 +101,27 @@ class DifferentialDriveTrajectoryOptimizer:
         )
 
     def add_constraint(self, constraint: TrajectoryConstraint) -> None:
-        """Add the given constraint to all trajectory segments.
+        """
+        Add the given constraint to all trajectory segments.
 
-        Keyword arguments:
-        constraint -- the constraint to apply
+        Args:
+            constraint: The constraint to apply.
         """
         self.constraints.append(constraint)
 
     def optimize(self, q: float, r: list[float]):
-        """Generate the optimal trajectory.
+        """
+        Generate the optimal trajectory.
 
-        Keyword arguments:
-        q -- minimum time cost weight
-        r -- list of the maximum allowed excursions of the control inputs from
-             no actuation
+        Args:
+        q: Minimum time cost weight.
+        r: List of the maximum allowed excursions of the control inputs from no
+            actuation.
 
         Returns:
-        times -- list of times in solution
-        states -- matrix of states (states x times)
-        inputs -- matrix of inputs (inputs x times)
+            times: List of times in solution.
+            states: Matrix of states (states x times).
+            inputs: Matrix of inputs (inputs x times).
         """
         num_segments = len(self.waypoints) - 1
         vars_per_segment = 100
@@ -243,14 +249,15 @@ class DifferentialDriveTrajectoryOptimizer:
     def f(
         self, x: npt.NDArray[np.float64], u: npt.NDArray[np.float64]
     ) -> npt.NDArray[np.float64]:
-        """The dynamical model for a differential drive.
+        """
+        The dynamical model for a differential drive.
 
-        Keyword arguments:
-        x -- state column vector: [x, y, heading, left velocity, right velocity]
-        u -- input column vector: [left voltage, right voltage]
+        Args:
+            x: State column vector: [x, y, heading, left velocity, right velocity].
+            u: Input column vector: [left voltage, right voltage].
 
         Returns:
-        dx/dt
+            dx/dt
         """
         v = (x[3] + x[4]) / 2
 
@@ -263,12 +270,13 @@ class DifferentialDriveTrajectoryOptimizer:
 
     @staticmethod
     def resample(times, states, inputs, dt):
-        """Resample the given states and inputs at a new period.
+        """
+        Resample the given states and inputs at a new period.
 
-        Keyword arguments:
-        times -- list of times in solution
-        states -- matrix of states (states x times)
-        inputs -- matrix of inputs (inputs x times)
+        Args:
+            times: List of times in solution.
+            states: Matrix of states (states x times).
+            inputs: Matrix of inputs (inputs x times).
         """
         new_times = [times[0]]
         new_states = states[:, 0:1]

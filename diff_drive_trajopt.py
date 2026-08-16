@@ -22,14 +22,14 @@ def plot_data(
     labels: list[str],
     units: list[str],
 ) -> None:
-    """Plots data (e.g., states, inputs) in time domain with one figure per
-    unit.
+    """
+    Plots data (e.g., states, inputs) in time domain with one figure per unit.
 
-    Keyword arguments:
-    times -- list of times
-    data -- matrix of data (states or inputs x times)
-    labels -- list of data label strings
-    units -- list of data unit strings
+    Args:
+        times: list of times
+        data: matrix of data (states or inputs x times)
+        labels: list of data label strings
+        units: list of data unit strings
     """
     # Build mapping from unit to data that have that unit
     unit_to_data = {}

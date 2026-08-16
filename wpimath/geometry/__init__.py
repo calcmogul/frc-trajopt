@@ -16,20 +16,22 @@ class Pose2d:
         self.rotation = rotation
 
     def rotate_by(self, rotation: float):
-        """Rotate the pose counterclockwise by the given angle.
+        """
+        Rotate the pose counterclockwise by the given angle.
 
-        Keyword arguments:
-        rotation -- Angle in radians
+        Args:
+            rotation: Angle in radians.
         """
         x = math.cos(rotation) * self.x - math.sin(rotation) * self.y
         y = math.sin(rotation) * self.x + math.cos(rotation) * self.y
         return Pose2d(x, y, self.rotation + rotation)
 
     def relative_to(self, pose):
-        """Returns current pose relative to provided pose.
+        """
+        Returns current pose relative to provided pose.
 
-        Keyword arguments:
-        pose -- pose used as reference point
+        Args:
+            pose: Pose used as reference point.
         """
         # Clockwise rotation matrix
         R = np.array(
@@ -52,10 +54,10 @@ class Pose2d:
     def exp(self, twist, dt: float):
         """Apply the given twist to update the pose.
 
-        Keyword arguments:
-        twist -- a Twist2d object containing the linear and angular velocities
-                 between updates
-        dt -- the time in seconds between updates
+        Args:
+            twist: A Twist2d object containing the linear and angular velocities
+                between updates.
+            dt: The time in seconds between updates.
         """
         # Compute change in pose in local coordinate frame
         if twist.omega > 1e-9:

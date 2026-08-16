@@ -9,7 +9,7 @@ class TrajectoryConstraint:
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def apply(problem, X, U) -> None:
+    def apply(self, problem, X, U) -> None:
         pass
 
 

@@ -2,7 +2,8 @@ import numpy as np
 
 
 class LinearSystem:
-    """A plant defined using state-space notation.
+    """
+    A plant defined using state-space notation.
 
     A plant is a mathematical model of a system's dynamics.
 
@@ -11,16 +12,18 @@ class LinearSystem:
     """
 
     def __init__(self, A, B, C, D):
-        """Constructs a discrete plant with the given continuous system
+        """
+        Constructs a discrete plant with the given continuous system
         coefficients.
 
-        Throws RuntimeError if any matrix element isn't finite.
+        Args:
+            A: System matrix.
+            B: Input matrix.
+            C: Output matrix.
+            D: Feedthrough matrix.
 
-        Keyword arguments:
-        A -- System matrix.
-        B -- Input matrix.
-        C -- Output matrix.
-        D -- Feedthrough matrix.
+        Raises:
+            RuntimeError: If any matrix element isn't finite.
         """
         if not np.isfinite(A).all():
             raise RuntimeError(
@@ -68,9 +71,9 @@ class Models:
             Kv_angular: The angular velocity gain in V/(m/s).
             Ka_angular: The angular acceleration gain in V/(m/s²).
 
-        Raises: RuntimeError: If kv_linear ≤ 0, ka_linear ≤ 0, kv_angular ≤ 0,
-            or ka_angular ≤ 0.
-
+        Raises:
+            RuntimeError: If kv_linear ≤ 0, ka_linear ≤ 0, kv_angular ≤ 0, or
+                ka_angular ≤ 0.
         """
         if Kv_linear <= 0:
             raise RuntimeError("Kv,linear must be greater than zero.")
