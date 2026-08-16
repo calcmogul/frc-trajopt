@@ -7,7 +7,7 @@ import numpy.typing as npt
 from typing import List
 
 from wpimath.geometry import Translation2d, Pose2d
-from wpimath.system.plant import LinearSystemId
+from wpimath.system import Models
 from wpimath.trajectory import DifferentialDriveTrajectoryOptimizer
 from wpimath.trajectory.constraint import (
     BoxObstacleConstraint,
@@ -64,7 +64,7 @@ def main():
     Kv_angular = 1.382  # V/(m/s)
     Ka_angular = 0.08495  # V/(m/s²)
 
-    system = LinearSystemId.identify_drivetrain_system(
+    system = Models.differential_drive_from_sysid(
         Kv_linear, Ka_linear, Kv_angular, Ka_angular
     )
 
