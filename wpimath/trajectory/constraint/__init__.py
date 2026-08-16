@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
 import numpy as np
+
 from wpimath.system import LinearSystem
 
 
@@ -64,6 +65,7 @@ class BoxObstacleConstraint(TrajectoryConstraint):
 
     def apply(self, problem, X, U) -> None:
         import math
+
         from casadi import sqrt
 
         x = X[0, :]

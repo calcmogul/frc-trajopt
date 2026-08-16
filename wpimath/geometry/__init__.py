@@ -4,18 +4,18 @@ import numpy as np
 
 
 class Translation2d:
-    def __init__(self, x: float = 0, y: float = 0):
+    def __init__(self, x: float = 0.0, y: float = 0.0):
         self.x = x
         self.y = y
 
 
 class Pose2d:
-    def __init__(self, x=0, y=0, rotation=0):
+    def __init__(self, x: float = 0.0, y: float = 0.0, rotation: float = 0.0):
         self.x = x
         self.y = y
         self.rotation = rotation
 
-    def rotate_by(self, rotation):
+    def rotate_by(self, rotation: float):
         """Rotate the pose counterclockwise by the given angle.
 
         Keyword arguments:
@@ -49,7 +49,7 @@ class Pose2d:
         temp = R @ temp
         return Pose2d(temp[0, 0], temp[1, 0], temp[2, 0])
 
-    def exp(self, twist, dt):
+    def exp(self, twist, dt: float):
         """Apply the given twist to update the pose.
 
         Keyword arguments:

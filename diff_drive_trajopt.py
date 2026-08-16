@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
 import math
+
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-from typing import List
 
-from wpimath.geometry import Translation2d, Pose2d
+from wpimath.geometry import Pose2d, Translation2d
 from wpimath.system import Models
 from wpimath.trajectory import DifferentialDriveTrajectoryOptimizer
 from wpimath.trajectory.constraint import (
@@ -17,10 +17,10 @@ from wpimath.trajectory.constraint import (
 
 
 def plot_data(
-    times: List[float],
+    times: list[float],
     data: npt.NDArray[np.float64],
-    labels: List[str],
-    units: List[str],
+    labels: list[str],
+    units: list[str],
 ) -> None:
     """Plots data (e.g., states, inputs) in time domain with one figure per
     unit.
@@ -41,7 +41,7 @@ def plot_data(
 
     for unit, indices in unit_to_data.items():
         plt.figure()
-        plt.title(f"{unit[:unit.find('(')].rstrip()} vs Time")
+        plt.title(f"{unit[: unit.find('(')].rstrip()} vs Time")
         plt.xlabel("Time (s)")
         plt.ylabel(unit)
         for i in indices:

@@ -3,8 +3,8 @@ import math
 import casadi as ca
 import numpy as np
 import numpy.typing as npt
-from typing import List, Optional
-from wpimath.geometry import Translation2d, Pose2d
+
+from wpimath.geometry import Pose2d, Translation2d
 from wpimath.math_util import lerp
 from wpimath.system import LinearSystem
 from wpimath.trajectory.constraint import *
@@ -16,8 +16,8 @@ class DifferentialDriveTrajectoryOptimizer:
             self,
             x: float,
             y: float,
-            heading: Optional[float] = None,
-            constraints: List[TrajectoryConstraint] = None,
+            heading: float | None = None,
+            constraints: list[TrajectoryConstraint] | None = None,
         ) -> None:
             """Constructs a waypoint as either a pose or translation with an
             optional list of constraints to apply between this waypoint and the
@@ -59,10 +59,10 @@ class DifferentialDriveTrajectoryOptimizer:
                 initial_pose.x, initial_pose.y, initial_pose.rotation
             )
         ]
-        self.constraints = []  # List of TrajectoryConstraints
+        self.constraints: list[TrajectoryConstraint] = []
 
     def add_pose(
-        self, pose: Pose2d, constraints: List[TrajectoryConstraint] = None
+        self, pose: Pose2d, constraints: list[TrajectoryConstraint] | None = None
     ) -> None:
         """Add a new trajectory segment terminated by the given pose with an
         optional list of constraints to apply within that segment.
@@ -78,7 +78,9 @@ class DifferentialDriveTrajectoryOptimizer:
         )
 
     def add_translation(
-        self, translation: Translation2d, constraints: List[TrajectoryConstraint] = None
+        self,
+        translation: Translation2d,
+        constraints: list[TrajectoryConstraint] | None = None,
     ) -> None:
         """Add a new trajectory segment terminated by the given translation
         (i.e., no heading constraint) with an optional list of constraints to
@@ -102,7 +104,7 @@ class DifferentialDriveTrajectoryOptimizer:
         """
         self.constraints.append(constraint)
 
-    def optimize(self, q: float, r: List[float]):
+    def optimize(self, q: float, r: list[float]):
         """Generate the optimal trajectory.
 
         Keyword arguments:
